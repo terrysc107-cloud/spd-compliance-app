@@ -1,8 +1,8 @@
 {
-  "name": "v0-project",
+  "name": "spd-compliance-app",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "SPD Intel Compliance Checklist App",
+  "type": "module",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
