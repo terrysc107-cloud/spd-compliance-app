@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useCallback } from "react";
 
 // ─── CHECKLIST DATA (from PDF) ───────────────────────────────────────────────
@@ -168,33 +170,41 @@ const SECTIONS = [
   }
 ];
 
-const SEVERITY_MAP = {
+const SEVERITY_MAP: Record<string, Record<string, string>> = {
   decon: { d5: "high", d7: "high", d8: "high", d9: "high", d12: "high", d13: "high", default: "medium" },
   steril: { st8: "high", st9: "high", st13: "high", st5: "high", default: "medium" },
   hld: { hd6: "high", hd15: "high", hd16: "high", hd19: "high", hd20: "high", default: "medium" },
 };
 
-function getSeverity(sectionId, itemId) {
+function getSeverity(sectionId: string, itemId: string): string {
   const map = SEVERITY_MAP[sectionId];
   if (!map) return "medium";
   return map[itemId] || map.default || "medium";
 }
 
-const SEVERITY_COLORS = {
+const SEVERITY_COLORS: Record<string, { bg: string; border: string; text: string; label: string }> = {
   high: { bg: "rgba(239,68,68,0.12)", border: "#ef4444", text: "#ef4444", label: "High" },
   medium: { bg: "rgba(234,179,8,0.12)", border: "#eab308", text: "#eab308", label: "Medium" },
   low: { bg: "rgba(34,197,94,0.12)", border: "#22c55e", text: "#22c55e", label: "Low" },
 };
 
 // ─── SCORE UTILS ─────────────────────────────────────────────────────────────
-function calcSectionScore(answers, section) {
+interface SectionType {
+  id: string;
+  label: string;
+  icon: string;
+  standard: string;
+  items: { id: string; text: string; rationale?: string }[];
+}
+
+function calcSectionScore(answers: Record<string, string>, section: SectionType): number | null {
   const applicable = section.items.filter(i => answers[i.id] !== "na");
   if (!applicable.length) return null;
   const yes = applicable.filter(i => answers[i.id] === "yes").length;
   return Math.round((yes / applicable.length) * 100);
 }
 
-function scoreColor(pct) {
+function scoreColor(pct: number | null): string {
   if (pct === null) return "#475569";
   if (pct >= 85) return "#22c55e";
   if (pct >= 65) return "#eab308";
@@ -202,7 +212,7 @@ function scoreColor(pct) {
   return "#ef4444";
 }
 
-function scoreBg(pct) {
+function scoreBg(pct: number | null): string {
   if (pct === null) return "rgba(71,85,105,0.1)";
   if (pct >= 85) return "rgba(34,197,94,0.1)";
   if (pct >= 65) return "rgba(234,179,8,0.1)";
@@ -211,7 +221,21 @@ function scoreBg(pct) {
 }
 
 // ─── AI REPORT ───────────────────────────────────────────────────────────────
-async function generateAIReport(gaps, profile, sectionScores) {
+interface Gap {
+  sectionId: string;
+  sectionLabel: string;
+  standard: string;
+  text: string;
+  comment: string;
+  severity: string;
+}
+
+interface SectionScore {
+  label: string;
+  score: number | null;
+}
+
+async function generateAIReport(gaps: Gap[], profile: string, sectionScores: SectionScore[]): Promise<string> {
   const gapList = gaps.map(g =>
     `- [${g.severity.toUpperCase()}] ${g.sectionLabel} — ${g.text}${g.comment ? ` (Note: ${g.comment})` : ""}`
   ).join("\n");
@@ -251,8 +275,8 @@ Be direct, specific, and clinical. No filler. Format with clear headers using ##
 }
 
 // ─── COMPONENTS ──────────────────────────────────────────────────────────────
-function AuditModeSelector({ onSelect }) {
-  const [hover, setHover] = useState(null);
+function AuditModeSelector({ onSelect }: { onSelect: (mode: string, sectionIds: string[]) => void }) {
+  const [hover, setHover] = useState<string | null>(null);
   return (
     <div style={{ minHeight: "100vh", background: "#05091a", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "24px" }}>
       <div style={{ textAlign: "center", marginBottom: "48px" }}>
@@ -299,7 +323,7 @@ function AuditModeSelector({ onSelect }) {
           <div style={{ fontSize: "16px", fontWeight: 700, color: "#fff", marginBottom: "8px" }}>Focus Audit</div>
           <div style={{ fontSize: "13px", color: "#64748b", lineHeight: 1.6 }}>Select specific sections · Target known problem areas · Ideal for follow-up assessments and corrective action verification</div>
           <div style={{ marginTop: "16px", padding: "10px 14px", borderRadius: "10px", background: "rgba(168,85,247,0.08)", border: "1px solid rgba(168,85,247,0.15)", fontSize: "12px", color: "#a78bfa" }}>
-            You'll choose which sections to include →
+            {"You'll choose which sections to include →"}
           </div>
         </button>
       </div>
@@ -307,9 +331,9 @@ function AuditModeSelector({ onSelect }) {
   );
 }
 
-function SectionPicker({ onStart }) {
-  const [selected, setSelected] = useState([]);
-  const toggle = id => setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+function SectionPicker({ onStart }: { onStart: (ids: string[]) => void }) {
+  const [selected, setSelected] = useState<string[]>([]);
+  const toggle = (id: string) => setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   return (
     <div style={{ minHeight: "100vh", background: "#05091a", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "24px" }}>
       <div style={{ maxWidth: "560px", width: "100%" }}>
@@ -352,7 +376,16 @@ function SectionPicker({ onStart }) {
   );
 }
 
-function ChecklistItem({ item, sectionId, answer, comment, onAnswer, onComment }) {
+interface ChecklistItemProps {
+  item: { id: string; text: string; rationale?: string };
+  sectionId: string;
+  answer: string | undefined;
+  comment: string;
+  onAnswer: (itemId: string, value: string) => void;
+  onComment: (itemId: string, value: string) => void;
+}
+
+function ChecklistItem({ item, answer, comment, onAnswer, onComment }: ChecklistItemProps) {
   const isNo = answer === "no";
   return (
     <div style={{
@@ -364,7 +397,7 @@ function ChecklistItem({ item, sectionId, answer, comment, onAnswer, onComment }
         <p style={{ color: "#475569", fontSize: "12px", lineHeight: 1.55, marginBottom: "14px", fontStyle: "italic" }}>{item.rationale}</p>
       )}
       <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-        {["yes", "no", "na"].map(opt => {
+        {(["yes", "no", "na"] as const).map(opt => {
           const labels = { yes: "✓ Yes", no: "✗ No", na: "N/A" };
           const colors = {
             yes: { active: { bg: "rgba(34,197,94,0.15)", border: "#22c55e", color: "#22c55e" }, idle: {} },
@@ -402,10 +435,17 @@ function ChecklistItem({ item, sectionId, answer, comment, onAnswer, onComment }
   );
 }
 
-function GapReport({ gaps, answers, selectedSectionIds, onRestart }) {
+interface GapReportProps {
+  gaps: Gap[];
+  answers: Record<string, string>;
+  selectedSectionIds: string[];
+  onRestart: () => void;
+}
+
+function GapReport({ gaps, answers, selectedSectionIds, onRestart }: GapReportProps) {
   const [reportText, setReportText] = useState("");
   const [loading, setLoading] = useState(false);
-  const [view, setView] = useState("gaps"); // gaps | report
+  const [view, setView] = useState<"gaps" | "report">("gaps");
 
   const sectionScores = SECTIONS.filter(s => selectedSectionIds.includes(s.id)).map(s => ({
     label: s.label,
@@ -427,7 +467,7 @@ function GapReport({ gaps, answers, selectedSectionIds, onRestart }) {
 
   const handlePrint = () => window.print();
 
-  const formatReport = (text) => {
+  const formatReport = (text: string) => {
     return text.split("\n").map((line, i) => {
       if (line.startsWith("## ")) return <h3 key={i} style={{ color: "#60a5fa", fontSize: "15px", fontWeight: 700, marginTop: "20px", marginBottom: "8px" }}>{line.replace("## ", "")}</h3>;
       if (line.startsWith("**") && line.endsWith("**")) return <p key={i} style={{ color: "#e2e8f0", fontWeight: 700, fontSize: "14px", marginBottom: "4px" }}>{line.replace(/\*\*/g, "")}</p>;
@@ -495,7 +535,7 @@ function GapReport({ gaps, answers, selectedSectionIds, onRestart }) {
               </div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                {["high", "medium", "low"].map(sev => {
+                {(["high", "medium", "low"] as const).map(sev => {
                   const sevGaps = gaps.filter(g => g.severity === sev);
                   if (!sevGaps.length) return null;
                   const sc = SEVERITY_COLORS[sev];
@@ -552,17 +592,17 @@ function GapReport({ gaps, answers, selectedSectionIds, onRestart }) {
 
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 export default function SPDIntelChecklist() {
-  const [phase, setPhase] = useState("mode"); // mode | picker | audit | report
-  const [auditMode, setAuditMode] = useState(null);
-  const [selectedSectionIds, setSelectedSectionIds] = useState([]);
+  const [phase, setPhase] = useState<"mode" | "picker" | "audit" | "report">("mode");
+  const [auditMode, setAuditMode] = useState<string | null>(null);
+  const [selectedSectionIds, setSelectedSectionIds] = useState<string[]>([]);
   const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
-  const [answers, setAnswers] = useState({});
-  const [comments, setComments] = useState({});
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [comments, setComments] = useState<Record<string, string>>({});
 
   const activeSections = SECTIONS.filter(s => selectedSectionIds.includes(s.id));
   const currentSection = activeSections[currentSectionIndex];
 
-  const handleModeSelect = (mode, sectionIds) => {
+  const handleModeSelect = (mode: string, sectionIds: string[]) => {
     setAuditMode(mode);
     if (mode === "full") {
       setSelectedSectionIds(sectionIds);
@@ -572,16 +612,16 @@ export default function SPDIntelChecklist() {
     }
   };
 
-  const handleSectionStart = (ids) => {
+  const handleSectionStart = (ids: string[]) => {
     setSelectedSectionIds(ids);
     setPhase("audit");
   };
 
-  const handleAnswer = useCallback((itemId, value) => {
+  const handleAnswer = useCallback((itemId: string, value: string) => {
     setAnswers(prev => ({ ...prev, [itemId]: value }));
   }, []);
 
-  const handleComment = useCallback((itemId, value) => {
+  const handleComment = useCallback((itemId: string, value: string) => {
     setComments(prev => ({ ...prev, [itemId]: value }));
   }, []);
 
@@ -594,8 +634,8 @@ export default function SPDIntelChecklist() {
   };
 
   // Build gaps for report
-  const buildGaps = () => {
-    const gaps = [];
+  const buildGaps = (): Gap[] => {
+    const gaps: Gap[] = [];
     SECTIONS.filter(s => selectedSectionIds.includes(s.id)).forEach(section => {
       section.items.forEach(item => {
         if (answers[item.id] === "no") {
