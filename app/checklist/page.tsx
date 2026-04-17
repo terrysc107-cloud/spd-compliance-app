@@ -261,17 +261,20 @@ Generate a concise, actionable quality improvement report with:
 
 Be direct, specific, and clinical. No filler. Format with clear headers using ##.`;
 
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
+  const response = await fetch("/api/generate-report", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 1000,
-      messages: [{ role: "user", content: prompt }]
+      checklistData: {
+        profile,
+        sectionScores: scoreList,
+        gaps: gapList,
+        gapCount: gaps.length
+      }
     })
   });
   const data = await response.json();
-  return data.content?.[0]?.text || "Report generation failed.";
+  return data.report || "Report generation failed.";
 }
 
 // ─── COMPONENTS ──────────────────────────────────────────────────────────────
