@@ -266,3 +266,32 @@ app/
 3. **Corrective actions are not linked across sessions.** Editing a corrective action on the results page saves it to `localStorage` inside the audit record, but the findings list page reads findings fresh from `getAllAudits()` on mount — status and corrective action edits made on the results page are visible only if the findings page re-mounts. No reactive/shared state exists between the two routes; Phase 08 Supabase migration will resolve this structurally.
 4. **Dashboard uses its own inline card styles** rather than the `Card` primitive or `PageShell`. Inconsistency will widen as more pages are added — dashboard should be refactored to use `PageShell` in Phase 05.
 5. **`StoredAudit` interface is redeclared locally** in `audits/page.tsx` and `findings/page.tsx` instead of importing from `audit-storage.ts`. Creates drift risk if the canonical type changes.
+
+---
+
+## Phase 05 — Content & Resource System (2026-05-15)
+
+### What Was Built
+
+- **`lib/types/checklist.ts`** — canonical type layer: `ChecklistItemDef` (with `weight: 1|2|3`, `severity`, `responseType`, `referenceUrl`, `order`), `ChecklistTemplate` (with `isBuiltIn`, `status`, `version`), and the union types `ResponseType`, `Severity`, `ChecklistCategory`, `ChecklistStatus`.
+- **Three AAMI built-in templates** in `lib/data/templates/`: `st79Template` (108 items, 7 sections, severity-mapped), `st91Template` (40 items, 5 sections, endoscope-focused), `ST108_TEMPLATE` (40 items, 5 sections, water quality with `referenceUrl` on every item).
+- **`lib/data/templates/index.ts`** — `BUILT_IN_TEMPLATES` registry array and `getAllTemplates(custom)` composer. Built-ins never touch localStorage.
+- **`lib/storage/checklist-storage.ts`** — CRUD for custom checklists in localStorage (`saveCustomChecklist`, `getCustomChecklist`, `getAllCustomChecklists`, `updateCustomChecklist`, `deleteCustomChecklist`, `cloneChecklist`). Carries forward the `typeof window === 'undefined'` SSR guard from Phase 04.
+- **`app/(app)/checklists/page.tsx`** — library listing with category filter tabs, search, template cards (Clone/Edit/Delete guarded by `isBuiltIn`), uses `PageShell` + all `components/ui` primitives.
+- **`app/(app)/checklists/new/page.tsx`** — builder form: template metadata fields plus a dynamic `ItemRow` list (add/remove/reorder visually). Saves as active or draft via `saveCustomChecklist`.
+- **`app/(app)/checklists/[id]/page.tsx`** — read-only detail view; resolves built-ins first, then custom; Clone always available, Edit gated by `!isBuiltIn`.
+- **`app/(app)/checklists/[id]/edit/page.tsx`** — edit form for custom templates only; blocks with a clear message if `isBuiltIn` is true; `ItemEditor` syncs severity → weight automatically.
+
+### Key Patterns
+
+- **`structuredClone` for clone** — `cloneChecklist` uses `structuredClone(source)` to deep-copy items before stamping new `id`, `isBuiltIn: false`, `status: 'draft'`, timestamps. Safe for nested arrays.
+- **`isBuiltIn` guard** — all mutating actions (Edit button, Delete button, edit-page render) check `template.isBuiltIn` before proceeding. Single flag, enforced at both UI and storage layer.
+- **`BUILT_IN_TEMPLATES` registry** — the index barrel is the only place built-ins are enumerated. `getAllTemplates(custom)` merges without duplication. Template resolution always checks built-ins first.
+- **Severity → weight auto-sync in `ItemEditor`** — changing severity automatically sets weight (`critical→3, major→2, minor→1`), keeping the two fields consistent without requiring the user to set both.
+
+### Debt for Phase 06+
+
+1. **"Start Audit" still links to legacy `/checklist`** — both `checklists/page.tsx` (line 218) and `checklists/[id]/page.tsx` (line 156) hardcode `href="/checklist"`. Must be updated to pass the selected template ID to the audit flow once Phase 06/08 wires up template-aware audits.
+2. **`weight` field not yet wired into the scoring engine** — `ChecklistItemDef.weight` is stored and displayed but `buildAuditPayload` in `app/checklist/page.tsx` still counts `yes/applicable` without weighting. Weighted scoring requires a Phase 06 update to the gap/score calculation.
+3. **No ARIA on interactive controls** — filter tab buttons, category `<select>` elements, and item remove buttons in both builder and edit pages have no `aria-label` or `role`. Consistent gap across all Phase 03–05 pages; needs a Design Auditor pass before Phase 10.
+4. **`edit/page.tsx` at 370 lines** — under the 500-line limit but fragile; `ItemEditor` and its inline `selectStyle`/`labelStyle` constants should be extracted to a shared `components/checklist/ItemEditor.tsx` before Phase 06 adds more item field types (e.g. numeric validation range).
