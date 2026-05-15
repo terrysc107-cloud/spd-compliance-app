@@ -348,3 +348,53 @@ app/
 2. **Department scoping will move to RLS** — client-side filtering in `audits/page.tsx` and `findings/page.tsx` is a temporary approximation. Once Supabase is live, row-level security policies on the `audits` table should enforce scoping server-side; the client filter should be removed.
 3. **Team tab has no email validation** — `addMember` only checks `newName.trim()` and `newEmail.trim()` for non-empty strings. No format check (regex or `type="email"` constraint) exists. Malformed emails will be saved silently.
 4. **`departmentId` stored as raw id in audit records** — `audits/page.tsx` renders `audit.departmentId ?? 'Unassigned'` directly (shows the UUID, not the department name). Phase 08 should join against the org config or store `departmentCode` alongside the id for readable display.
+
+---
+
+## Phase 08 — Backend & Data Reality (2026-05-15)
+
+### What Was Built
+
+**Supabase SDK layer** (`lib/supabase/`)
+- `client.ts` — `createBrowserClient` via `@supabase/ssr` for client components.
+- `server.ts` — `createServerSupabaseClient` via `createServerClient`; reads/writes cookies through the Next.js `cookies()` async API.
+- `middleware.ts` — `updateSession` refreshes the Supabase session on every request, enforces redirect-to-login for all protected routes, and redirects authenticated users away from `/login` and `/signup`.
+- `middleware.ts` (root) — thin wrapper delegating to `updateSession`; matcher excludes static assets and images.
+
+**Database schema** (`supabase/migrations/001_initial_schema.sql`)
+- Tables: `organizations`, `departments`, `profiles` (extends `auth.users`), `checklists`, `checklist_items`, `audits`, `audit_responses`, `findings`, `imported_datasets`, `reports`.
+- `profiles.role` check constraint enforces the `supervisor | manager | director | qa` union; `audits.overall_score` is `numeric(5,2)`.
+
+**Row-Level Security** (`supabase/migrations/002_rls_policies.sql`)
+- RLS enabled on all 10 tables.
+- Three `security definer` helper functions: `get_my_org_id()`, `get_my_role()`, `get_my_dept_id()` — each does a single `profiles` lookup by `auth.uid()`. All policies call these helpers, keeping policy expressions short and org-scoped.
+- Audit/finding policies: supervisors are scoped to `department_id = get_my_dept_id()`; manager/director/qa see all org rows — mirrors the Phase 07 client-side filter but now enforced at the DB.
+
+**Auth UI** (`app/(auth)/`)
+- Route group `(auth)` sits outside `(app)` — login and signup pages are never wrapped in the authenticated sidebar layout.
+- `login/page.tsx` — `signInWithPassword`, redirects to `/dashboard` on success.
+- `signup/page.tsx` — `signUp` with `options.data.name`; shows "Check your email" confirmation state. No profile row is created here (critical gap — see Debt).
+
+**CSV import** (`lib/csv/parser.ts`, `lib/storage/import-storage.ts`, `app/(app)/import/page.tsx`)
+- `parseCSVText` handles RFC 4180 quoted fields and CRLF/LF; returns `headers`, `rows`, `rowCount`, `errors`.
+- `import-storage.ts` persists datasets to `localStorage` under `spd_imports` — not yet written to `imported_datasets` Supabase table.
+- Import page: 3-step wizard (upload → column mapping → success); drag-and-drop zone; preview of first 3 row values per column; delete from history.
+
+**Reports** (`lib/reports/generator.ts`, `lib/storage/report-storage.ts`, `app/(app)/reports/page.tsx`, `app/api/generate-report/route.ts`)
+- `buildReportData` aggregates `StoredAudit` arrays into `ReportData`: avg score, critical/major/open finding counts, top-10 failing items ranked by frequency.
+- Report page: 3 report types (Audit Summary, Gap Analysis, Trend); per-type date range pickers; calls `/api/generate-report`; displays streamed text; `.txt` download via `Blob` + object URL; report history in `localStorage`.
+- `generate-report` route: dual-path — accepts `reportData` (new structured path) or legacy `checklistData` (backward compat for Phase 01 checklist page). Returns `{ report: string }`.
+
+### Key Patterns
+
+- **`get_my_org_id / get_my_role / get_my_dept_id` RLS helpers** — `security definer` functions are the single point for identity resolution in all policies. Add new policies by calling these; never inline a `profiles` subquery in a policy expression.
+- **`(auth)` route group outside `(app)`** — auth pages render without the sidebar layout. The middleware redirect logic assumes `/login` and `/signup` are at the root path, not nested under `(app)`.
+- **Backward-compatible API route** — `generate-report/route.ts` checks `reportData` first, falls back to `checklistData`. The legacy `checklist/page.tsx` (Phase 01) can still call the endpoint without modification.
+- **SSR guard** — all localStorage storage modules (`import-storage.ts`, `report-storage.ts`, etc.) check `typeof window === 'undefined'` before any `localStorage` access; server.ts uses `await cookies()` correctly for Next.js 15 async cookie API.
+
+### Critical Debt for Phase 09
+
+1. **All data still in localStorage — nothing reads from Supabase yet.** Audits, findings, checklists, imports, reports, and thresholds are all read/written through the Phase 04–07 localStorage modules. The Supabase schema and RLS exist but no app code queries them.
+2. **No profile row created on signup.** `signup/page.tsx` calls `supabase.auth.signUp` only; there is no insert into `profiles`, `organizations`, or `departments`. Any authenticated user who signs up will have `auth.uid()` with no matching `profiles` row, causing every RLS policy (which queries `profiles`) to return empty sets.
+3. **`supabase.auth.getUser()` not yet wired into `getCurrentUser`.** `lib/storage/org-storage.ts` still returns `users[0]` from localStorage. Phase 09 must replace this with a server call (`createServerSupabaseClient` + `auth.getUser()`) and a `profiles` lookup.
+4. **No Supabase Storage for PDF/report export.** Reports are saved as text in localStorage and downloaded as `.txt` via `Blob`. The `reports.file_url` column in the schema has no writer yet; `window.print()` remains the only print path.
