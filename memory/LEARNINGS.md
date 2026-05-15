@@ -321,3 +321,30 @@ app/
 1. **"Start Audit" still links to `/checklist`** — `checklists/page.tsx` and `checklists/[id]/page.tsx` still hardcode the legacy route; not updated to pass a template ID into a dynamic audit flow.
 2. **No ARIA on assessment components** — `FindingLifecycle` action buttons and `StepIndicator` circles have no `aria-label`. `TrendComparison` metric tiles and bar segments have no accessible text alternative. Consistent gap across all phases; Design Auditor pass required before Phase 10.
 3. **`TrendComparison` has no empty-state label when fewer than 2 audits exist** — the Previous and 90-Day Avg tiles render `—` correctly, but the mini bar chart section is conditionally hidden with no explanatory message. First-time users see only the Current tile with no context.
+
+---
+
+## Phase 07 — Org Structure & Role Management (2026-05-15)
+
+### What Was Built
+
+- **`lib/types/org.ts`** — canonical types: `UserRole` union (`supervisor | manager | director | qa`), `Department` (id, name, code, createdAt), `OrgUser` (with `departmentId`), `OrgConfig` (orgName, departments, users, updatedAt).
+- **`lib/storage/org-storage.ts`** — localStorage persistence for org config. Exports `getOrgConfig`, `saveOrgConfig`, `getCurrentUser` (returns `users[0]` as Phase 08 placeholder), `getCurrentDepartmentId`, and `canViewAllDepartments` (true for manager, director, qa roles).
+- **`app/(app)/settings/page.tsx`** — four-tab settings page (Organization, Team, Thresholds, About). Organization tab: org name save, department CRUD (add, inline edit, delete). Team tab: member add (name, email, role, department) and inline role change; remove guarded — index 0 user cannot be deleted (proxy for "current user").
+- **`app/(app)/audits/page.tsx`** (updated) — imports `getCurrentUser` and `canViewAllDepartments`; applies department scoping on load: supervisors see only audits where `!audit.departmentId || audit.departmentId === user.departmentId`; managers/directors/qa see all.
+- **`app/(app)/findings/page.tsx`** (updated) — same department-scoping pattern applied to the flattened findings list; page description adapts to role.
+- **`app/checklist/page.tsx`** (updated) — `buildAuditPayload` now stamps `departmentId` from `getCurrentDepartmentId()` and `conductedBy` from `getCurrentUser().name` onto every saved audit record.
+
+### Key Patterns
+
+- **`getCurrentUser` as placeholder** — always returns `users[0]` from localStorage. This is an intentional Phase 08 stub; the function name signals the future contract without requiring auth yet.
+- **`canViewAllDepartments(role)`** — single predicate centralises the role-scoping rule. Both `audits/page.tsx` and `findings/page.tsx` import and call it identically; avoids duplicated role lists.
+- **Backward-compat filter for `departmentId`** — filter condition is `!a.departmentId || a.departmentId === user.departmentId`. Audits created before Phase 07 have no `departmentId` field and are visible to all roles, preventing data loss on upgrade.
+- **`idx > 0` remove guard** — `TeamTab` only renders the Remove button for `idx > 0`, keeping at least one user in the list as a proxy for "cannot remove yourself."
+
+### Debt for Phase 08
+
+1. **`getCurrentUser` must be replaced by real auth session** — currently returns the first localStorage user regardless of who is logged in. Phase 08 must wire this to a Supabase session (`auth.getUser()`) and look up the matching `OrgUser` by email or id.
+2. **Department scoping will move to RLS** — client-side filtering in `audits/page.tsx` and `findings/page.tsx` is a temporary approximation. Once Supabase is live, row-level security policies on the `audits` table should enforce scoping server-side; the client filter should be removed.
+3. **Team tab has no email validation** — `addMember` only checks `newName.trim()` and `newEmail.trim()` for non-empty strings. No format check (regex or `type="email"` constraint) exists. Malformed emails will be saved silently.
+4. **`departmentId` stored as raw id in audit records** — `audits/page.tsx` renders `audit.departmentId ?? 'Unassigned'` directly (shows the UUID, not the department name). Phase 08 should join against the org config or store `departmentCode` alongside the id for readable display.
