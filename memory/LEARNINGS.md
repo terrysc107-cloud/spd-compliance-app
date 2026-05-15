@@ -398,3 +398,41 @@ app/
 2. **No profile row created on signup.** `signup/page.tsx` calls `supabase.auth.signUp` only; there is no insert into `profiles`, `organizations`, or `departments`. Any authenticated user who signs up will have `auth.uid()` with no matching `profiles` row, causing every RLS policy (which queries `profiles`) to return empty sets.
 3. **`supabase.auth.getUser()` not yet wired into `getCurrentUser`.** `lib/storage/org-storage.ts` still returns `users[0]` from localStorage. Phase 09 must replace this with a server call (`createServerSupabaseClient` + `auth.getUser()`) and a `profiles` lookup.
 4. **No Supabase Storage for PDF/report export.** Reports are saved as text in localStorage and downloaded as `.txt` via `Blob`. The `reports.file_url` column in the schema has no writer yet; `window.print()` remains the only print path.
+
+---
+
+## Phase 09 — Intelligence & Personalization (2026-05-15)
+
+### What Was Built
+
+- **`lib/analytics/aggregator.ts`** — four pure aggregation functions over `StoredAudit[]`: `buildTrendData` (compliance percentage over time, sorted by date), `buildTopFailItems` (ranked failing items with fail count and severity), `buildSectionHeatmap` (per-section average score across audits that carry `auditScore.sections`), `buildAuditorStats` (per-auditor audit count and average score grouped by `conductedBy`).
+- **`app/(app)/analytics/page.tsx`** — full analytics dashboard: Recharts `LineChart` for compliance trend (click a point to deep-link to that audit's results page), horizontal `BarChart` for top failures colored by severity (`critical=#ef4444`, `major=#f97316`, `minor=#eab308`), section heatmap as a CSS grid (score mapped to background opacity), auditor breakdown table.
+- **`components/insights/AIInsightsPanel.tsx`** — AI insights widget driven by real audit data. Constructs a structured prompt from actual failing items and fail counts, posts to `/api/generate-report` using the legacy `checklistData.profile` field to inject the prompt without requiring a new endpoint. Uses `AbortController` to cancel an in-flight request when regeneration is triggered before the previous response completes.
+- **`lib/staffing/calculator.ts`** — two exported functions: `calculateStaffing` (returns `coverageRatio`, `status: 'adequate' | 'marginal' | 'understaffed'`, `fteGap`, and `requiredFte`) and `analyzeSchedule` (returns a 7-day `ScheduleDay[]` array with `requiredStaff`, `scheduledStaff`, `variance`, and `riskLevel` per day).
+- **`app/(app)/settings/staffing/page.tsx`** — Staffing Calculator UI: FTE count, hours per shift, shifts per week, and daily procedure volume inputs; live coverage ratio display with a progress bar; status badge; recommendation text.
+- **`app/(app)/settings/schedule/page.tsx`** — Smart Scheduler 7-day grid; each day shows scheduled vs required staff, variance, and risk level color-coded cell; summary bar at the top shows total days adequate/marginal/understaffed.
+- **`app/(app)/settings/page.tsx`** (updated) — added Staffing Tools tab alongside existing Organization, Team, Thresholds, and About tabs.
+
+### Key Technical Learnings
+
+**Recharts layout requirements**
+- Every chart must be wrapped in `ResponsiveContainer` with a defined `height` (e.g., `height={300}`). Using fixed pixel `width` and `height` directly on `LineChart` or `BarChart` breaks responsive layout — the parent container does not shrink/grow with the viewport.
+- `BarChart` with `layout="vertical"` requires `XAxis type="number"` and `YAxis type="category" dataKey="name"` to render horizontal bars. The default (`layout="horizontal"`) produces vertical bars; swapping `layout` alone without adjusting axis types produces a blank chart.
+- Recharts v3 mouse event types do not expose `activePayload` in the TypeScript definitions. Click handlers on chart elements (e.g., `onClick` on `LineChart`) require an `any` cast: `(data: any) => { ... }`. This is a known upstream type gap; do not attempt to resolve it by importing internal Recharts types — they are not part of the public API.
+
+**AIInsightsPanel reuse pattern**
+- The panel reuses the existing `/api/generate-report` endpoint's legacy `checklistData.profile` field to inject a fully structured prompt string. This avoids creating a new endpoint while producing audit-aware AI output. The `profile` field is treated as a freeform string by the API route, making it a safe injection point for arbitrary structured text.
+- `AbortController` is instantiated on each generate/regenerate call and stored in a `useRef`. The previous controller's `.abort()` is called before starting a new fetch. This prevents stale responses from overwriting newer ones when the user regenerates rapidly.
+
+**Analytics data inclusion rule**
+- `buildSectionHeatmap` silently excludes any audit record that does not have `auditScore.sections` populated. Only audits created under Phase 06+ (which run through the weighted scoring engine) carry this field. Pre-Phase-06 audits are correctly excluded — including them with count-approximated section scores would corrupt the heatmap averages.
+
+**Staffing formula**
+- Available minutes per day = `(fteCount × hoursPerShift × 60 × shiftsPerWeek) / 5` (divides weekly capacity across 5 working days).
+- Coverage ratio thresholds: `≥ 1.1` = adequate, `0.9–1.09` = marginal, `< 0.9` = understaffed. These match common SPD staffing benchmarks and are encoded as named constants in `calculator.ts` for future configurability.
+
+### Debt Carried Forward to Phase 10
+
+1. **localStorage not replaced by Supabase reads/writes.** All analytics, staffing, and insight data is still sourced from the Phase 04–08 localStorage modules. The Supabase schema from Phase 08 has no readers yet — this is the primary structural debt of the project.
+2. **AI insights use non-streaming response path.** `AIInsightsPanel` waits for a complete JSON response from `/api/generate-report`. A streaming endpoint (using `streamText` from the Vercel AI SDK and reading a `ReadableStream` in the client) would improve perceived latency for long insight responses but requires a new API route.
+3. **Phase 10 work required before launch:** E2E smoke tests (Playwright or similar) covering the audit flow, Lighthouse performance and accessibility audit, bundle size analysis (`next/bundle-analyzer`), and a full security review of the API routes and Supabase RLS policies.
