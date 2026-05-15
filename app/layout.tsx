@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import './globals.css'
+import './print.css'
 
 export const metadata: Metadata = {
   title: "SPD Intel — Sterile Processing Compliance Audits",

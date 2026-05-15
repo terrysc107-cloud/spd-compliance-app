@@ -1,12 +1,78 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
+import Link from "next/link";
 import { SECTIONS } from "@/lib/data/checklist-sections";
 import { getSeverity } from "@/lib/data/severity-map";
+import {
+  saveAudit,
+  getAllAudits,
+  StoredAudit,
+  StoredFinding,
+} from "@/lib/storage/audit-storage";
 import AuditModeSelector from "@/components/checklist/AuditModeSelector";
 import SectionPicker from "@/components/checklist/SectionPicker";
 import ChecklistItemRow from "@/components/checklist/ChecklistItemRow";
-import GapReport, { Gap, calcSectionScore, scoreColor, scoreBg } from "@/components/checklist/GapReport";
+import GapReport, {
+  Gap,
+  calcSectionScore,
+  scoreColor,
+  scoreBg,
+} from "@/components/checklist/GapReport";
+
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
+
+type SeverityKey = "critical" | "major" | "minor";
+
+function mapSeverity(raw: string): SeverityKey {
+  if (raw === "high")   return "critical";
+  if (raw === "low")    return "minor";
+  return "major";
+}
+
+function buildFindings(
+  answers: Record<string, string>,
+  comments: Record<string, string>,
+  selectedSectionIds: string[]
+): StoredFinding[] {
+  const findings: StoredFinding[] = [];
+  let globalIndex = 0;
+  SECTIONS.forEach(section => {
+    section.items.forEach(item => {
+      if (selectedSectionIds.includes(section.id)) {
+        if (answers[item.id] === "no") {
+          findings.push({
+            itemIndex:   globalIndex,
+            sectionName: section.label,
+            question:    item.text,
+            severity:    mapSeverity(getSeverity(section.id, item.id)),
+            comment:     comments[item.id] || "",
+            status:      "open",
+          });
+        }
+        globalIndex++;
+      }
+    });
+  });
+  return findings;
+}
+
+function calcOverallScore(
+  answers: Record<string, string>,
+  selectedSectionIds: string[]
+): number {
+  const sections = SECTIONS.filter(s => selectedSectionIds.includes(s.id));
+  let yes = 0, applicable = 0;
+  sections.forEach(section => {
+    section.items.forEach(item => {
+      if (answers[item.id] !== "na") {
+        applicable++;
+        if (answers[item.id] === "yes") yes++;
+      }
+    });
+  });
+  return applicable > 0 ? Math.round((yes / applicable) * 100) : 0;
+}
 
 // ─── MAIN PAGE ────────────────────────────────────────────────────────────────
 
@@ -17,13 +83,61 @@ export default function SPDIntelChecklist() {
   const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [comments, setComments] = useState<Record<string, string>>({});
+  const [auditId, setAuditId] = useState<string | null>(null);
+  const [resumePrompt, setResumePrompt] = useState<StoredAudit | null>(null);
+  const isFirstRender = useRef(true);
+
+  // On mount: check for an in-progress audit
+  useEffect(() => {
+    const inProgress = getAllAudits().find(a => a.status === "in-progress");
+    if (inProgress) {
+      setResumePrompt(inProgress);
+    }
+  }, []);
+
+  // Persist audit state on every answer change (after first render)
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    if (!auditId || phase !== "audit") return;
+    const audit: StoredAudit = {
+      id:                auditId,
+      checklistName:     "SPD Compliance Audit",
+      mode:              (auditMode === "full" ? "full" : "focus"),
+      startedAt:         new Date().toISOString(),
+      status:            "in-progress",
+      responses:         {},
+      sectionIndex:      currentSectionIndex,
+      findings:          [],
+    };
+    saveAudit(audit);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [answers, comments]);
 
   const activeSections = SECTIONS.filter(s => selectedSectionIds.includes(s.id));
   const currentSection = activeSections[currentSectionIndex];
 
-  // ─── Handlers ───────────────────────────────────────────────────────────────
+  // ─── Handlers ─────────────────────────────────────────────────────────────
+
+  const startFreshAudit = () => {
+    const newId = crypto.randomUUID();
+    setAuditId(newId);
+    setResumePrompt(null);
+    isFirstRender.current = true;
+  };
+
+  const resumeAudit = (stored: StoredAudit) => {
+    setAuditId(stored.id);
+    setAuditMode(stored.mode);
+    setCurrentSectionIndex(stored.sectionIndex ?? 0);
+    setResumePrompt(null);
+    setPhase("audit");
+  };
 
   const handleModeSelect = (mode: string, sectionIds: string[]) => {
+    if (!auditId) startFreshAudit();
     setAuditMode(mode);
     if (mode === "full") {
       setSelectedSectionIds(sectionIds);
@@ -46,12 +160,33 @@ export default function SPDIntelChecklist() {
     setComments(prev => ({ ...prev, [itemId]: value }));
   }, []);
 
+  const handleComplete = () => {
+    if (!auditId) return;
+    const score    = calcOverallScore(answers, selectedSectionIds);
+    const findings = buildFindings(answers, comments, selectedSectionIds);
+    const audit: StoredAudit = {
+      id:            auditId,
+      checklistName: "SPD Compliance Audit",
+      mode:          (auditMode === "full" ? "full" : "focus"),
+      startedAt:     new Date().toISOString(),
+      completedAt:   new Date().toISOString(),
+      status:        "completed",
+      responses:     {},
+      score,
+      findings,
+    };
+    saveAudit(audit);
+    setPhase("report");
+  };
+
   const handleRestart = () => {
     setPhase("mode");
     setAnswers({});
     setComments({});
     setCurrentSectionIndex(0);
     setSelectedSectionIds([]);
+    setAuditId(null);
+    isFirstRender.current = true;
   };
 
   const buildGaps = (): Gap[] => {
@@ -60,12 +195,12 @@ export default function SPDIntelChecklist() {
       section.items.forEach(item => {
         if (answers[item.id] === "no") {
           gaps.push({
-            sectionId: section.id,
+            sectionId:    section.id,
             sectionLabel: section.label,
-            standard: section.standard,
-            text: item.text,
-            comment: comments[item.id] || "",
-            severity: getSeverity(section.id, item.id),
+            standard:     section.standard,
+            text:         item.text,
+            comment:      comments[item.id] || "",
+            severity:     getSeverity(section.id, item.id),
           });
         }
       });
@@ -73,20 +208,63 @@ export default function SPDIntelChecklist() {
     return gaps;
   };
 
-  // ─── Phase routing ──────────────────────────────────────────────────────────
+  // ─── Resume prompt overlay ─────────────────────────────────────────────────
+
+  if (resumePrompt) {
+    return (
+      <div style={{ minHeight: "100vh", background: "#05091a", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ padding: "32px", borderRadius: "16px", background: "#0d1529", border: "1px solid rgba(255,255,255,0.08)", maxWidth: "400px", width: "100%", margin: "0 20px" }}>
+          <div style={{ fontSize: "28px", marginBottom: "12px" }}>⚕</div>
+          <h2 style={{ color: "#fff", fontSize: "18px", fontWeight: 700, margin: "0 0 8px" }}>Resume audit?</h2>
+          <p style={{ color: "#94a3b8", fontSize: "13px", margin: "0 0 24px" }}>
+            You have an in-progress audit. Would you like to continue where you left off?
+          </p>
+          <div style={{ display: "flex", gap: "10px" }}>
+            <button
+              onClick={() => resumeAudit(resumePrompt)}
+              style={{ flex: 1, padding: "10px", borderRadius: "10px", background: "linear-gradient(135deg,#3b82f6,#6366f1)", color: "#fff", fontWeight: 700, fontSize: "13px", border: "none", cursor: "pointer" }}>
+              Resume
+            </button>
+            <button
+              onClick={() => { startFreshAudit(); setResumePrompt(null); }}
+              style={{ flex: 1, padding: "10px", borderRadius: "10px", background: "rgba(255,255,255,0.04)", color: "#94a3b8", fontWeight: 600, fontSize: "13px", border: "1px solid rgba(255,255,255,0.08)", cursor: "pointer" }}>
+              Start Fresh
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── Phase routing ─────────────────────────────────────────────────────────
 
   if (phase === "mode")   return <AuditModeSelector onSelect={handleModeSelect} />;
   if (phase === "picker") return <SectionPicker onStart={handleSectionStart} />;
-  if (phase === "report") return <GapReport gaps={buildGaps()} answers={answers} selectedSectionIds={selectedSectionIds} onRestart={handleRestart} />;
+  if (phase === "report") {
+    return (
+      <div>
+        <GapReport gaps={buildGaps()} answers={answers} selectedSectionIds={selectedSectionIds} onRestart={handleRestart} />
+        {auditId && (
+          <div style={{ position: "fixed", bottom: "24px", right: "24px", zIndex: 50 }}>
+            <Link
+              href={`/audits/${auditId}/results`}
+              style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "12px 20px", borderRadius: "12px", background: "linear-gradient(135deg,#22c55e,#16a34a)", color: "#fff", fontWeight: 700, fontSize: "14px", textDecoration: "none", boxShadow: "0 4px 24px rgba(0,0,0,0.4)" }}>
+              View Results
+            </Link>
+          </div>
+        )}
+      </div>
+    );
+  }
 
-  // ─── Audit phase ────────────────────────────────────────────────────────────
+  // ─── Audit phase ───────────────────────────────────────────────────────────
 
-  const sectionAnswered  = currentSection?.items.filter(i => answers[i.id]).length || 0;
-  const sectionTotal     = currentSection?.items.length || 1;
-  const sectionComplete  = sectionAnswered === sectionTotal;
-  const overallProgress  = Math.round(((currentSectionIndex + (sectionAnswered / sectionTotal)) / activeSections.length) * 100);
-  const sectionScore     = calcSectionScore(answers, currentSection);
-  const gapCount         = Object.keys(answers).filter(k => answers[k] === "no").length;
+  const sectionAnswered = currentSection?.items.filter(i => answers[i.id]).length || 0;
+  const sectionTotal    = currentSection?.items.length || 1;
+  const sectionComplete = sectionAnswered === sectionTotal;
+  const overallProgress = Math.round(((currentSectionIndex + (sectionAnswered / sectionTotal)) / activeSections.length) * 100);
+  const sectionScore    = calcSectionScore(answers, currentSection);
+  const gapCount        = Object.keys(answers).filter(k => answers[k] === "no").length;
 
   return (
     <div style={{ minHeight: "100vh", background: "#05091a" }}>
@@ -119,17 +297,11 @@ export default function SPDIntelChecklist() {
           {/* Section tabs */}
           <div style={{ display: "flex", gap: "6px", overflowX: "auto", paddingBottom: "2px" }}>
             {activeSections.map((s, i) => {
-              const score   = calcSectionScore(answers, s);
+              const score    = calcSectionScore(answers, s);
               const isActive = i === currentSectionIndex;
               const isDone   = score !== null;
               return (
-                <button key={s.id} onClick={() => setCurrentSectionIndex(i)} style={{
-                  flexShrink: 0, padding: "5px 12px", borderRadius: "99px", fontSize: "11px", fontWeight: 600,
-                  border: isActive ? "1px solid rgba(59,130,246,0.5)" : isDone ? `1px solid ${scoreColor(score)}40` : "1px solid transparent",
-                  background: isActive ? "rgba(59,130,246,0.15)" : isDone ? scoreBg(score) : "rgba(255,255,255,0.04)",
-                  color: isActive ? "#60a5fa" : isDone ? scoreColor(score) : "#475569",
-                  cursor: "pointer", display: "flex", alignItems: "center", gap: "4px"
-                }}>
+                <button key={s.id} onClick={() => setCurrentSectionIndex(i)} style={{ flexShrink: 0, padding: "5px 12px", borderRadius: "99px", fontSize: "11px", fontWeight: 600, border: isActive ? "1px solid rgba(59,130,246,0.5)" : isDone ? `1px solid ${scoreColor(score)}40` : "1px solid transparent", background: isActive ? "rgba(59,130,246,0.15)" : isDone ? scoreBg(score) : "rgba(255,255,255,0.04)", color: isActive ? "#60a5fa" : isDone ? scoreColor(score) : "#475569", cursor: "pointer", display: "flex", alignItems: "center", gap: "4px" }}>
                   {s.icon} {s.label} {isDone && `${score}%`}
                 </button>
               );
@@ -159,43 +331,27 @@ export default function SPDIntelChecklist() {
         {/* Checklist items */}
         <div>
           {currentSection.items.map(item => (
-            <ChecklistItemRow
-              key={item.id}
-              item={item}
-              answer={answers[item.id]}
-              comment={comments[item.id] || ""}
-              onAnswer={handleAnswer}
-              onComment={handleComment}
-            />
+            <ChecklistItemRow key={item.id} item={item} answer={answers[item.id]} comment={comments[item.id] || ""} onAnswer={handleAnswer} onComment={handleComment} />
           ))}
         </div>
 
         {/* Navigation */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "32px", paddingTop: "24px", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-          <button
-            disabled={currentSectionIndex === 0}
-            onClick={() => setCurrentSectionIndex(i => i - 1)}
-            style={{ padding: "10px 20px", borderRadius: "10px", fontSize: "13px", fontWeight: 600, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)", color: currentSectionIndex === 0 ? "#334155" : "#94a3b8", cursor: currentSectionIndex === 0 ? "not-allowed" : "pointer" }}>
-            ← Back
+          <button disabled={currentSectionIndex === 0} onClick={() => setCurrentSectionIndex(i => i - 1)} style={{ padding: "10px 20px", borderRadius: "10px", fontSize: "13px", fontWeight: 600, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)", color: currentSectionIndex === 0 ? "#334155" : "#94a3b8", cursor: currentSectionIndex === 0 ? "not-allowed" : "pointer" }}>
+            Back
           </button>
 
           <div style={{ fontSize: "12px", color: "#334155" }}>
-            {sectionComplete ? "✓ Section complete" : `${sectionTotal - sectionAnswered} remaining`}
+            {sectionComplete ? "Section complete" : `${sectionTotal - sectionAnswered} remaining`}
           </div>
 
           {currentSectionIndex < activeSections.length - 1 ? (
-            <button
-              disabled={!sectionComplete}
-              onClick={() => setCurrentSectionIndex(i => i + 1)}
-              style={{ padding: "10px 22px", borderRadius: "10px", fontSize: "13px", fontWeight: 700, border: "none", background: sectionComplete ? "linear-gradient(135deg,#3b82f6,#6366f1)" : "rgba(255,255,255,0.05)", color: sectionComplete ? "#fff" : "#334155", cursor: sectionComplete ? "pointer" : "not-allowed", transition: "all 0.2s" }}>
-              Next Section →
+            <button disabled={!sectionComplete} onClick={() => setCurrentSectionIndex(i => i + 1)} style={{ padding: "10px 22px", borderRadius: "10px", fontSize: "13px", fontWeight: 700, border: "none", background: sectionComplete ? "linear-gradient(135deg,#3b82f6,#6366f1)" : "rgba(255,255,255,0.05)", color: sectionComplete ? "#fff" : "#334155", cursor: sectionComplete ? "pointer" : "not-allowed", transition: "all 0.2s" }}>
+              Next Section
             </button>
           ) : (
-            <button
-              disabled={!sectionComplete}
-              onClick={() => setPhase("report")}
-              style={{ padding: "10px 22px", borderRadius: "10px", fontSize: "13px", fontWeight: 700, border: "none", background: sectionComplete ? "linear-gradient(135deg,#22c55e,#16a34a)" : "rgba(255,255,255,0.05)", color: sectionComplete ? "#fff" : "#334155", cursor: sectionComplete ? "pointer" : "not-allowed", transition: "all 0.2s" }}>
-              Complete Audit →
+            <button disabled={!sectionComplete} onClick={handleComplete} style={{ padding: "10px 22px", borderRadius: "10px", fontSize: "13px", fontWeight: 700, border: "none", background: sectionComplete ? "linear-gradient(135deg,#22c55e,#16a34a)" : "rgba(255,255,255,0.05)", color: sectionComplete ? "#fff" : "#334155", cursor: sectionComplete ? "pointer" : "not-allowed", transition: "all 0.2s" }}>
+              Complete Audit
             </button>
           )}
         </div>
