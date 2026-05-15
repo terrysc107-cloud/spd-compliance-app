@@ -295,3 +295,29 @@ app/
 2. **`weight` field not yet wired into the scoring engine** — `ChecklistItemDef.weight` is stored and displayed but `buildAuditPayload` in `app/checklist/page.tsx` still counts `yes/applicable` without weighting. Weighted scoring requires a Phase 06 update to the gap/score calculation.
 3. **No ARIA on interactive controls** — filter tab buttons, category `<select>` elements, and item remove buttons in both builder and edit pages have no `aria-label` or `role`. Consistent gap across all Phase 03–05 pages; needs a Design Auditor pass before Phase 10.
 4. **`edit/page.tsx` at 370 lines** — under the 500-line limit but fragile; `ItemEditor` and its inline `selectStyle`/`labelStyle` constants should be extracted to a shared `components/checklist/ItemEditor.tsx` before Phase 06 adds more item field types (e.g. numeric validation range).
+
+---
+
+## Phase 06 — Assessment & Feedback Layer (2026-05-15)
+
+### What Was Built
+
+- **`lib/scoring/engine.ts`** — weighted scoring engine. Score = sum(weight of yes) / sum(weight of yes + no) × 100; N/A excluded from both numerator and denominator. Exports `calculateScore`, `getScoreStatus`, `getScoreColor`, `ScoringConfig`, `SectionResult`, `AuditScore`.
+- **`lib/storage/threshold-storage.ts`** — org-level pass/marginal threshold persistence to localStorage. Defaults: pass ≥ 90, marginal ≥ 70. Validates numeric fields on read; fails silently on quota error on write.
+- **`app/(app)/settings/thresholds/page.tsx`** — threshold editor with live `BandPreview` showing Pass/Marginal/Fail ranges. Validates that marginal < pass before saving; resets to defaults on demand.
+- **`components/assessment/TrendComparison.tsx`** — three-tile widget showing Current / Previous / 90-Day Avg scores with delta arrows and a mini bar chart of the last 5 completed audits for the same checklist name.
+- **`components/assessment/FindingLifecycle.tsx`** — per-finding stepper card: Open → In Progress → Resolved with a `StepIndicator`, corrective action textarea (saves on blur), and Reopen support. Writes via `updateFinding` and calls `onUpdate` to refresh parent state.
+- **`app/(app)/audits/[id]/results/page.tsx`** (updated) — now imports `TrendComparison` and `FindingLifecycle`; replaces the inline editable table with lifecycle cards; derives section rows and severity counts from `audit.auditScore` when present, falling back to the legacy count-based approximation for pre-Phase-06 records.
+
+### Key Patterns
+
+- **Global index strategy** — `StoredFinding.itemIndex` is a flat global item index across all sections, used as the stable key in `FindingLifecycle` and `updateFinding`. Consistent across storage, engine, and UI layers.
+- **Backward-compatible `auditScore` field** — `StoredAudit.auditScore` is optional. Results page checks `audit.auditScore` before using engine data; `legacySectionRows` provides a count-based fallback so old audits render without migration.
+- **`severityToWeight` bridge** — engine maps `critical → weight 3`, `major → 2`, `minor → 1` inline via `item.weight ?? 1`. The severity-to-weight relationship is owned by `lib/data/severity-map.ts` at write time and trusted at scoring time; no re-derivation needed.
+- **SSR guard carried forward** — `threshold-storage.ts` and `engine.ts` both check `typeof window === 'undefined'` (storage layer) before touching `localStorage`. Pattern now consistent across all three storage modules (audit, checklist, threshold).
+
+### Debt for Phase 07+
+
+1. **"Start Audit" still links to `/checklist`** — `checklists/page.tsx` and `checklists/[id]/page.tsx` still hardcode the legacy route; not updated to pass a template ID into a dynamic audit flow.
+2. **No ARIA on assessment components** — `FindingLifecycle` action buttons and `StepIndicator` circles have no `aria-label`. `TrendComparison` metric tiles and bar segments have no accessible text alternative. Consistent gap across all phases; Design Auditor pass required before Phase 10.
+3. **`TrendComparison` has no empty-state label when fewer than 2 audits exist** — the Previous and 90-Day Avg tiles render `—` correctly, but the mini bar chart section is conditionally hidden with no explanatory message. First-time users see only the Current tile with no context.
