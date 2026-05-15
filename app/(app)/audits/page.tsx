@@ -1,14 +1,14 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
 import PageShell from '@/components/layout/PageShell'
 import { Card, Badge, Button } from '@/components/ui'
 import { tokens } from '@/lib/constants/design-tokens'
 import { getAllAudits } from '@/lib/storage/audit-storage'
+import { getCurrentUser, canViewAllDepartments } from '@/lib/storage/org-storage'
 
-type StatusFilter  = 'all' | 'in-progress' | 'completed'
-type DateFilter    = '7d' | '30d' | 'all'
+type StatusFilter = 'all' | 'in-progress' | 'completed'
+type DateFilter   = '7d' | '30d' | 'all'
 
 interface StoredAudit {
   id: string
@@ -19,6 +19,8 @@ interface StoredAudit {
   status: 'in-progress' | 'completed'
   score?: number
   findings: unknown[]
+  departmentId?: string
+  conductedBy?: string
 }
 
 function scoreColor(score?: number): string {
@@ -36,7 +38,7 @@ function scoreLevelBadge(score?: number): { label: string; variant: 'success' | 
 }
 
 function statusVariant(s: string): 'success' | 'info' | 'default' {
-  if (s === 'completed')  return 'success'
+  if (s === 'completed')   return 'success'
   if (s === 'in-progress') return 'info'
   return 'default'
 }
@@ -53,24 +55,35 @@ function cutoff(days: number): Date {
 }
 
 const selectStyle: React.CSSProperties = {
-  background: tokens.color.surface,
-  border: `1px solid ${tokens.color.border}`,
+  background:   tokens.color.surface,
+  border:       `1px solid ${tokens.color.border}`,
   borderRadius: tokens.radius.sm,
-  color: tokens.color.textMuted,
-  fontSize: 13,
-  padding: '7px 12px',
-  outline: 'none',
-  cursor: 'pointer',
+  color:        tokens.color.textMuted,
+  fontSize:     13,
+  padding:      '7px 12px',
+  outline:      'none',
+  cursor:       'pointer',
 }
 
 export default function AuditsPage() {
-  const [audits, setAudits]         = useState<StoredAudit[]>([])
-  const [statusFilter, setStatus]   = useState<StatusFilter>('all')
-  const [dateFilter, setDate]       = useState<DateFilter>('all')
+  const [audits, setAudits]       = useState<StoredAudit[]>([])
+  const [statusFilter, setStatus] = useState<StatusFilter>('all')
+  const [dateFilter, setDate]     = useState<DateFilter>('all')
+  const [canViewAll, setCanViewAll] = useState(false)
+  const [userDeptId, setUserDeptId] = useState<string>('')
 
   useEffect(() => {
+    const user = getCurrentUser()
+    const viewAll = canViewAllDepartments(user.role)
+    setCanViewAll(viewAll)
+    setUserDeptId(user.departmentId)
+
     const raw = getAllAudits() as StoredAudit[]
-    const sorted = [...raw].sort(
+    const scoped = viewAll
+      ? raw
+      : raw.filter(a => !a.departmentId || a.departmentId === user.departmentId)
+
+    const sorted = [...scoped].sort(
       (a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()
     )
     setAudits(sorted)
@@ -89,7 +102,7 @@ export default function AuditsPage() {
   return (
     <PageShell
       title="Audit History"
-      description="All completed and in-progress compliance audits."
+      description={canViewAll ? 'All departments — completed and in-progress audits.' : 'Audits for your department.'}
     >
       {/* Filter bar */}
       <Card padding="sm">
@@ -142,21 +155,23 @@ export default function AuditsPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {filtered.map((audit) => (
               <Card key={audit.id} padding="md" hoverable>
-                <div style={{
-                  display: 'flex', alignItems: 'center',
-                  gap: 16, flexWrap: 'wrap',
-                }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
                   {/* Checklist name + date */}
                   <div style={{ flex: 1, minWidth: 180 }}>
-                    <p style={{ margin: 0, fontWeight: 600, fontSize: 14,
-                      color: tokens.color.textPrimary }}>
+                    <p style={{ margin: 0, fontWeight: 600, fontSize: 14, color: tokens.color.textPrimary }}>
                       {audit.checklistName}
                     </p>
                     <p style={{ margin: '2px 0 0', fontSize: 12, color: tokens.color.textDimmed }}>
                       {fmt(audit.startedAt)}
                       {audit.completedAt ? ` – ${fmt(audit.completedAt)}` : ''}
+                      {audit.conductedBy ? ` · ${audit.conductedBy}` : ''}
                     </p>
                   </div>
+
+                  {/* Department */}
+                  <span style={{ fontSize: 12, color: tokens.color.textDimmed, whiteSpace: 'nowrap' }}>
+                    {audit.departmentId ?? 'Unassigned'}
+                  </span>
 
                   {/* Mode */}
                   <Badge variant="default" size="sm">
@@ -164,11 +179,7 @@ export default function AuditsPage() {
                   </Badge>
 
                   {/* Score */}
-                  <span style={{
-                    fontWeight: 700, fontSize: 15,
-                    color: scoreColor(audit.score),
-                    minWidth: 44, textAlign: 'right',
-                  }}>
+                  <span style={{ fontWeight: 700, fontSize: 15, color: scoreColor(audit.score), minWidth: 44, textAlign: 'right' }}>
                     {audit.score !== undefined ? `${audit.score}%` : '—'}
                   </span>
 

@@ -26,6 +26,8 @@ export interface StoredAudit {
   score?:          number                     // overall % compliance
   auditScore?:     AuditScore                 // full weighted scoring result (Phase 06+)
   findings:        StoredFinding[]
+  departmentId?:   string                     // Phase 07: org department scoping
+  conductedBy?:    string                     // Phase 07: user display name
 }
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────

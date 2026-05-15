@@ -5,6 +5,7 @@ import Link from "next/link";
 import { SECTIONS } from "@/lib/data/checklist-sections";
 import { getSeverity } from "@/lib/data/severity-map";
 import { saveAudit, getAllAudits, StoredAudit, StoredFinding } from "@/lib/storage/audit-storage";
+import { getCurrentUser, getCurrentDepartmentId } from "@/lib/storage/org-storage";
 import { calculateScore, AuditScore } from "@/lib/scoring/engine";
 import { getThresholds } from "@/lib/storage/threshold-storage";
 import AuditModeSelector from "@/components/checklist/AuditModeSelector";
@@ -106,11 +107,15 @@ function buildAuditPayload(
   const auditScore: AuditScore = calculateScore(responses, items, sectionMap, config);
 
   const now = new Date().toISOString();
+  const currentUser = getCurrentUser();
+  const deptId = getCurrentDepartmentId();
   return {
     id,
     checklistName: "SPD Compliance Audit",
     mode: mode === "full" ? "full" : "focus",
     startedAt: now,
+    departmentId: deptId,
+    conductedBy: currentUser.name,
     ...(completed
       ? { completedAt: now, status: "completed", score: auditScore.overall, auditScore, findings }
       : { status: "in-progress", findings: [] }
