@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { getAllAudits, StoredAudit } from '@/lib/storage/audit-storage'
 import { Badge } from '@/components/ui/Badge'
 import { tokens } from '@/lib/constants/design-tokens'
+import { AIInsightsPanel } from '@/components/insights/AIInsightsPanel'
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 
@@ -74,6 +75,11 @@ export default function DashboardPage() {
             <p style={{ margin: 0, fontSize: 36, fontWeight: 700, color: tokens.color.textPrimary }}>{value}</p>
           </div>
         ))}
+      </div>
+
+      {/* AI Quality Insights */}
+      <div style={{ marginBottom: 28 }}>
+        <AIInsightsPanel />
       </div>
 
       {/* Recent Audits */}

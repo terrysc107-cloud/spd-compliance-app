@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import PageShell from '@/components/layout/PageShell'
 import { Card, Badge, Button, Input } from '@/components/ui'
 import { tokens } from '@/lib/constants/design-tokens'
@@ -9,7 +10,7 @@ import type { OrgConfig, Department, OrgUser, UserRole } from '@/lib/types/org'
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 
-type Tab = 'organization' | 'team' | 'thresholds' | 'about'
+type Tab = 'organization' | 'team' | 'thresholds' | 'tools' | 'about'
 
 const ROLES: UserRole[] = ['supervisor', 'manager', 'director', 'qa']
 
@@ -48,6 +49,7 @@ function TabBar({ active, onChange }: { active: Tab; onChange: (t: Tab) => void 
     { id: 'organization', label: 'Organization' },
     { id: 'team',         label: 'Team' },
     { id: 'thresholds',   label: 'Thresholds' },
+    { id: 'tools',        label: 'Staffing Tools' },
     { id: 'about',        label: 'About' },
   ]
   return (
@@ -302,6 +304,52 @@ function ThresholdsTab() {
   )
 }
 
+// ─── TOOLS TAB ────────────────────────────────────────────────────────────────
+
+const toolLinkStyle: React.CSSProperties = {
+  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+  gap: 16, padding: '16px', textDecoration: 'none',
+  background: 'rgba(255,255,255,0.02)', border: `1px solid ${tokens.color.border}`,
+  borderRadius: tokens.radius.md, transition: 'border-color 0.15s, background 0.15s',
+}
+
+function ToolsTab() {
+  return (
+    <Card padding="md">
+      <h2 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 600, color: tokens.color.textPrimary }}>
+        Staffing Tools
+      </h2>
+      <p style={{ margin: '0 0 20px', fontSize: 13, color: tokens.color.textMuted }}>
+        Capacity planning utilities to help you match staff levels to surgical volume.
+      </p>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <Link href="/settings/staffing" style={toolLinkStyle}>
+          <div>
+            <p style={{ margin: '0 0 3px', fontSize: 14, fontWeight: 600, color: tokens.color.textPrimary }}>
+              Staffing Calculator
+            </p>
+            <p style={{ margin: 0, fontSize: 13, color: tokens.color.textMuted }}>
+              Estimate FTE coverage ratio against daily case volume and instrument load.
+            </p>
+          </div>
+          <span style={{ fontSize: 18, color: tokens.color.textDimmed, flexShrink: 0 }}>→</span>
+        </Link>
+        <Link href="/settings/schedule" style={toolLinkStyle}>
+          <div>
+            <p style={{ margin: '0 0 3px', fontSize: 14, fontWeight: 600, color: tokens.color.textPrimary }}>
+              Smart Scheduler
+            </p>
+            <p style={{ margin: 0, fontSize: 13, color: tokens.color.textMuted }}>
+              Analyze day-by-day staffing gaps across the full week and get risk recommendations.
+            </p>
+          </div>
+          <span style={{ fontSize: 18, color: tokens.color.textDimmed, flexShrink: 0 }}>→</span>
+        </Link>
+      </div>
+    </Card>
+  )
+}
+
 // ─── ABOUT TAB ────────────────────────────────────────────────────────────────
 
 function AboutTab() {
@@ -341,6 +389,7 @@ export default function SettingsPage() {
       {tab === 'organization' && <OrgTab config={config} setConfig={setConfig} />}
       {tab === 'team'         && <TeamTab config={config} setConfig={setConfig} />}
       {tab === 'thresholds'   && <ThresholdsTab />}
+      {tab === 'tools'        && <ToolsTab />}
       {tab === 'about'        && <AboutTab />}
     </PageShell>
   )
