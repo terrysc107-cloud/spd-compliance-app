@@ -236,3 +236,33 @@ app/
 3. **`GapReport.tsx` does too much.** It owns the AI fetch call, score utilities, the `Gap` type, and the full report UI. The fetch logic and score utils should move to `lib/` in Phase 04 to keep components under 500 lines (current count: 238, safe now but fragile).
 4. **Severity map incomplete.** `preppack`, `storage`, `general`, and `water` sections have no explicit severity entries — every "No" answer in those sections defaults to `"medium"`. Severity coverage needs to be completed before meaningful gap prioritization is possible.
 5. **No `aria-label` or role attributes on interactive checklist buttons.** `ChecklistItemRow` answer buttons and `SectionPicker` toggle buttons lack accessible labels. Phase 04 or Design Auditor pass should address this.
+
+---
+
+## Phase 04 — Core Experience Completion (2026-05-15)
+
+### What Was Built
+
+- **`lib/storage/audit-storage.ts`** — localStorage persistence layer. Public API: `saveAudit`, `getAudit`, `getAllAudits`, `updateAudit`, `updateFinding`, `deleteAudit`. Supports upsert (save-on-answer on every `answers`/`comments` state change), finding-level status updates, and corrective action capture per finding.
+- **`app/checklist/page.tsx`** (updated) — integrated persistence: detects an in-progress audit on mount via `getAllAudits()` and offers a resume-or-restart prompt; `useEffect` on `answers`/`comments` auto-saves in-progress state; `handleComplete` writes a completed record with score and findings array; "View Results" deep-link appears after completion.
+- **`app/(app)/audits/[id]/results/page.tsx`** — per-audit results page. Loads stored audit via `getAudit(id)` in `useEffect`. Displays score hero with overall %, open/resolved counts, per-section score bars (derived from findings), and an editable findings table with inline status select and corrective-action textarea (saves on blur via `updateFinding`).
+- **`app/(app)/dashboard/page.tsx`** — live summary dashboard. Reads all audits from localStorage in `useEffect`; derives total audit count, average compliance score, open findings count, and recent-5-audits table with deep-links to results.
+- **`app/(app)/audits/page.tsx`** — audit history list with status and date-range filters, using `PageShell` + `Card`/`Badge`/`Button` primitives throughout.
+- **`app/(app)/findings/page.tsx`** — cross-audit findings list. Flattens all completed audits into a single findings array; severity and status filter controls; summary counts (critical/major/minor open) at the top.
+- **`app/print.css`** — media query stylesheet suppressing sidebar, nav, and buttons for `window.print()`, normalising backgrounds to white, and adding table borders for ink-safe output.
+
+### Key Patterns Worth Reusing
+
+- **SSR guard on localStorage:** both `readAll()` and `writeAll()` in `audit-storage.ts` check `typeof window === 'undefined'` before touching `localStorage`. Copy this guard into every future storage utility — Next.js SSR will otherwise throw at build time.
+- **Save-on-answer via `useEffect` + skip-first-render ref:** `useRef(true)` set to `false` after the first effect run prevents a spurious write on mount. The pattern (ref guard → skip → save) is the correct way to auto-persist client state without double-writing on hydration.
+- **Finding generation at completion:** `buildAuditPayload` iterates all selected sections, maps `"no"` answers to `StoredFinding` records using `getSeverity()`, and computes overall score from `yes / applicable`. This is the canonical way to produce findings — do not re-derive them at display time.
+- **Editable table with local state + blur-save:** `FindingRow` keeps `correctiveAction` in local `useState`, writes on `onBlur`, and calls both `updateFinding` (persistence) and `onUpdate` (parent state lift). Use this pattern for any inline-edit table where round-trip latency must be avoided.
+- **Flat findings aggregation:** `findings/page.tsx` derives its dataset entirely from `getAllAudits().flatMap(a => a.findings)` with audit metadata spread in. No separate findings store needed — the audit record is the source of truth.
+
+### Known Debt for Phase 05+
+
+1. **Section scores approximated from findings count, not actual responses.** `buildSectionRows` in `results/page.tsx` estimates section score as `(items.length - failCount) / items.length`. N/A answers are not accounted for — a section with many N/A items will show artificially low scores. True section scores require storing per-section response counts alongside findings.
+2. **No ARIA labels on interactive controls.** Answer buttons in `ChecklistItemRow`, section tab buttons in `checklist/page.tsx`, and status selects in `FindingRow` have no `aria-label`. The findings table has no `<caption>` or `role="grid"`. Accessibility audit required before Phase 10.
+3. **Corrective actions are not linked across sessions.** Editing a corrective action on the results page saves it to `localStorage` inside the audit record, but the findings list page reads findings fresh from `getAllAudits()` on mount — status and corrective action edits made on the results page are visible only if the findings page re-mounts. No reactive/shared state exists between the two routes; Phase 08 Supabase migration will resolve this structurally.
+4. **Dashboard uses its own inline card styles** rather than the `Card` primitive or `PageShell`. Inconsistency will widen as more pages are added — dashboard should be refactored to use `PageShell` in Phase 05.
+5. **`StoredAudit` interface is redeclared locally** in `audits/page.tsx` and `findings/page.tsx` instead of importing from `audit-storage.ts`. Creates drift risk if the canonical type changes.
