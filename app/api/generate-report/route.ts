@@ -1,9 +1,12 @@
 // ─── REPORT GENERATION API ────────────────────────────────────────────────────
 // Accepts either structured ReportData (from reports page) or legacy freeform
 // checklistData (backward compat). Returns AI-generated report text.
+// Auth: requires a valid Supabase session cookie. Unauthenticated requests
+// receive 401 before any AI call is made.
 
 import { generateText } from 'ai'
 import type { ReportData } from '@/lib/reports/generator'
+import { createServerSupabaseClient } from '@/lib/supabase/server'
 
 function buildStructuredPrompt(data: ReportData): string {
   const top = data.topFailingItems.slice(0, 5)
@@ -59,6 +62,13 @@ Be direct, specific, and clinical. No filler. Format with clear headers using ##
 
 export async function POST(req: Request) {
   try {
+    // ── Auth guard ──────────────────────────────────────────────────────────
+    const supabase = await createServerSupabaseClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return Response.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const body = await req.json()
     const { reportData, checklistData } = body as { reportData?: ReportData; checklistData?: Record<string, unknown> }
 
