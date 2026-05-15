@@ -51,7 +51,8 @@ A leader who has **no quality plan, no oversight, no trend visibility** can:
 - Phase 03: Frontend Foundation — COMPLETE (2026-05-15)
 - Phase 04: Core Experience Completion — COMPLETE (2026-05-15)
 - Phase 05: Content & Resource System — COMPLETE (2026-05-15)
-- Phase 06: Assessment & Feedback Layer — IN PROGRESS (2026-05-15)
+- Phase 06: Assessment & Feedback Layer — COMPLETE (2026-05-15)
+- Phase 07: Offer & Monetization — IN PROGRESS (2026-05-15)
 
 ---
 
