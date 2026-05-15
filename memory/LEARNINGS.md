@@ -160,3 +160,50 @@ app/
 - `recharts` or `chart.js` — needed for Phase 09 analytics (not Phase 03)
 - `@supabase/supabase-js` — needed for Phase 08 (not Phase 03)
 - A CSS-in-JS or Tailwind solution — discuss with Design Auditor before committing
+
+---
+
+## Phase 02 — Core User Flow (2026-05-14)
+
+### What Was Built
+
+**Route group `app/(app)/` with shared `layout.tsx`**
+- The `(app)` route group wraps all authenticated pages (dashboard, checklists, audits, findings, analytics, import, reports, settings) in a single sticky sidebar layout. The group segment is invisible in URLs.
+- Layout is a flex row: `Sidebar` (240px, `position: sticky; top: 0; height: 100vh`) + `<main style={{ flex: 1, overflow: auto }}>`. This is the correct pattern for a persistent nav — sticky keeps the sidebar in view without `position: fixed` disrupting the scroll container.
+
+**Three shared layout components created in `components/layout/`**
+- `Sidebar.tsx` — `NAV_ITEMS` array drives all nav links. Active state derived from `usePathname()` with `startsWith` for nested routes. Hover effects use `onMouseEnter`/`onMouseLeave` against `e.currentTarget` (the inline-style equivalent of `:hover`). Role badge at the bottom is static ("Supervisor"), explicitly labeled "Phase 08: auth pending".
+- `Breadcrumb.tsx` — auto-generates crumbs from `usePathname()` segments. `LABEL_MAP` provides human labels for known segments; unknown segments get title-cased from the URL slug. `aria-label="Breadcrumb"` present for accessibility.
+- `PageShell.tsx` — wrapper accepting `title`, `description`, `actions`, and `children`. Renders breadcrumb, page header (h1 + description + optional action slot), then content. Reusable across all future pages.
+
+**Eight stub pages, each following a consistent pattern**
+- Header block (h1 + muted description), then feature stubs (disabled inputs, filter chips, drop zones, chart placeholders) labeled with the phase they activate. All pages are RSC (no `'use client'`) except where sidebar/breadcrumb hooks force client context.
+- `dashboard/page.tsx` links directly to `/checklists` as the primary CTA — correct flow entry point.
+- `checklists/page.tsx` has "Start Audit" links pointing to the legacy `/checklist` route (Phase 01 file), not `/audits/new`. This will need updating when Phase 08 wires up persistence.
+
+**Global fallback pages at `app/` root**
+- `error.tsx` — `'use client'` error boundary with reset button; displays `error.message`.
+- `loading.tsx` — CSS `@keyframes spin` inline; no external dependency.
+- `not-found.tsx` — links back to `/dashboard`.
+
+### Key Technical Decisions
+
+- **Sticky sidebar, not fixed.** The sidebar uses `position: sticky` on the `<aside>`, not `position: fixed`. This avoids body-level scroll lock and lets the main content area scroll independently as a flex sibling.
+- **`onMouseEnter`/`onMouseLeave` for hover.** No CSS classes or `:hover` selectors — consistent with the project's all-inline-styles constraint.
+- **`usePathname` active detection with `startsWith`.** Handles nested routes (e.g. `/checklists/new` still highlights the Checklists nav item) without requiring exact matches.
+- **Pages are RSC by default.** Only `layout.tsx`, `Sidebar.tsx`, `Breadcrumb.tsx`, and `PageShell.tsx` are `'use client'`. Stub pages have no client-side state and are server components.
+
+### Patterns Future Agents Should Reuse
+
+- Wrap all authenticated routes inside `app/(app)/` using the existing `layout.tsx`. Do not create parallel layouts.
+- Use `PageShell` for all new pages: pass `title`, `description`, and slot any action buttons via the `actions` prop.
+- Follow the `LABEL_MAP` pattern in `Breadcrumb.tsx` when adding new routes — add the segment key and label there so breadcrumbs render correctly.
+- Stub interactive features with `disabled` controls and a `"Active in Phase N"` caption rather than leaving blank space.
+
+### Debt and Gaps to Watch in Phase 03
+
+1. **`checklists/page.tsx` links to legacy `/checklist`** (Phase 01 route), not the new route group. Must be updated when the old checklist is migrated or replaced.
+2. **`PageShell` is not yet used by any page.** All eight stub pages have their own inline header blocks. Phase 03 should refactor them to use `PageShell` for consistency.
+3. **Sidebar role badge is hardcoded** to "Supervisor". No user context exists yet — this is intentional but will need a real identity source in Phase 08.
+4. **No `loading.tsx` inside `app/(app)/`** — the root `loading.tsx` covers the whole viewport including the sidebar area. A route-level loading state scoped to `<main>` would be more correct for Phase 03+.
+5. **Inline `muted` and `card` style objects are re-declared per file** — not imported from a shared token file. Same debt from Phase 01 remains unresolved.
