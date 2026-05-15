@@ -207,3 +207,32 @@ app/
 3. **Sidebar role badge is hardcoded** to "Supervisor". No user context exists yet — this is intentional but will need a real identity source in Phase 08.
 4. **No `loading.tsx` inside `app/(app)/`** — the root `loading.tsx` covers the whole viewport including the sidebar area. A route-level loading state scoped to `<main>` would be more correct for Phase 03+.
 5. **Inline `muted` and `card` style objects are re-declared per file** — not imported from a shared token file. Same debt from Phase 01 remains unresolved.
+
+---
+
+## Phase 03 — Frontend Foundation (2026-05-15)
+
+### What Was Built
+
+- `lib/constants/design-tokens.ts` — single `tokens` object (color, radius, shadow) as the canonical source of truth for all design values, exported `as const`.
+- `app/globals.css` — CSS custom properties mirroring every token, plus a reset (`box-sizing`, `margin`, `padding`) and base `body` styles. The dual representation (TS tokens + CSS vars) means components consume `tokens.*` inline but the design system is also available to any future CSS-authored file.
+- `components/ui/` — five primitives: `Button`, `Card`, `Badge`, `ProgressBar`, `Input`. All import from `design-tokens`. `Button` and `Card` use `useState(hovered)` + `onMouseEnter`/`onMouseLeave` for interactive states (consistent with Phase 02 Sidebar pattern). `Badge` and `ProgressBar` are pure (no client state needed). `Input` uses `useState(focused)` for focus-ring styling.
+- `lib/data/checklist-sections.ts` and `lib/data/severity-map.ts` — all 108 checklist items and severity rules extracted from the monolithic page into typed data modules. `ChecklistItem` and `Section` interfaces are exported from here and used as the contract across all checklist components.
+- `components/checklist/` — four domain components: `AuditModeSelector`, `SectionPicker`, `ChecklistItemRow`, `GapReport`. Score utilities (`calcSectionScore`, `scoreColor`, `scoreBg`) and the `Gap` type live in `GapReport.tsx` and are re-exported from there.
+- `app/checklist/page.tsx` — reduced to ~205 lines: pure state orchestrator. Owns phase state machine (`mode → picker → audit → report`), `answers`, `comments`, and delegates all rendering to the four checklist components.
+
+### Patterns to Reuse
+
+- **Token consumption pattern:** always import `tokens` from `@/lib/constants/design-tokens` and reference `tokens.color.*`, `tokens.radius.*` inline. Never hardcode hex values in component files.
+- **Hover/focus state pattern:** `const [hovered, setHovered] = useState(false)` + `onMouseEnter`/`onMouseLeave` on the element. Spread hover overrides conditionally: `...(hovered ? variantHover[variant] : {})`. Same pattern for focus rings in `Input`.
+- **Variant table pattern:** define `variantBase` and `variantHover` as `Record<Variant, React.CSSProperties>` at module level (not inside the component). Size overrides follow the same `Record<Size, CSSProperties>` shape. Merge all three in the computed style object.
+- **Data separation:** checklist data lives in `lib/data/`, not in components. Components receive typed props derived from that data. Adding a new section or adjusting severity requires only editing the data files.
+- **Phase-gated state machine:** `app/checklist/page.tsx` shows the correct pattern — a single `phase` string state with early `if (phase === "x") return <Component />` returns. No nested ternaries, no conditional renders mid-JSX.
+
+### Debt and Gaps for Phase 04
+
+1. **Checklist components do not use `components/ui/` primitives.** `AuditModeSelector`, `SectionPicker`, `ChecklistItemRow`, and `GapReport` all hardcode raw hex values and inline style objects instead of consuming `Button`, `Card`, `Badge`, or `tokens`. This is the primary consistency debt to address in Phase 04.
+2. **`PageShell` still unused in `app/checklist/page.tsx`.** The checklist route renders its own sticky header rather than integrating with the `(app)` layout established in Phase 02.
+3. **`GapReport.tsx` does too much.** It owns the AI fetch call, score utilities, the `Gap` type, and the full report UI. The fetch logic and score utils should move to `lib/` in Phase 04 to keep components under 500 lines (current count: 238, safe now but fragile).
+4. **Severity map incomplete.** `preppack`, `storage`, `general`, and `water` sections have no explicit severity entries — every "No" answer in those sections defaults to `"medium"`. Severity coverage needs to be completed before meaningful gap prioritization is possible.
+5. **No `aria-label` or role attributes on interactive checklist buttons.** `ChecklistItemRow` answer buttons and `SectionPicker` toggle buttons lack accessible labels. Phase 04 or Design Auditor pass should address this.
