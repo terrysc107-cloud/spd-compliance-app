@@ -5,6 +5,8 @@ import Link from "next/link";
 import { SECTIONS } from "@/lib/data/checklist-sections";
 import { getSeverity } from "@/lib/data/severity-map";
 import { saveAudit, getAllAudits, StoredAudit, StoredFinding } from "@/lib/storage/audit-storage";
+import { calculateScore, AuditScore } from "@/lib/scoring/engine";
+import { getThresholds } from "@/lib/storage/threshold-storage";
 import AuditModeSelector from "@/components/checklist/AuditModeSelector";
 import SectionPicker from "@/components/checklist/SectionPicker";
 import ChecklistItemRow from "@/components/checklist/ChecklistItemRow";
@@ -18,6 +20,58 @@ function mapSev(raw: string): StoredFinding['severity'] {
   return "major";
 }
 
+function severityToWeight(raw: string): 1 | 2 | 3 {
+  if (raw === "high")   return 3;
+  if (raw === "medium") return 2;
+  return 1;
+}
+
+// Build the flat items array and sectionMap needed by the scoring engine.
+// All sections are used here; the engine filters by sectionMap itemIndices.
+function buildScoringInputs(selectedSectionIds: string[]) {
+  const items: Array<{ weight: number; severity: string }> = [];
+  const sectionMap: Array<{ name: string; itemIndices: number[] }> = [];
+
+  let globalIdx = 0;
+  SECTIONS.forEach(sec => {
+    const indices: number[] = [];
+    sec.items.forEach(item => {
+      if (selectedSectionIds.includes(sec.id)) {
+        const rawSev = getSeverity(sec.id, item.id);
+        items.push({ weight: severityToWeight(rawSev), severity: mapSev(rawSev) });
+        indices.push(globalIdx);
+      } else {
+        items.push({ weight: 1, severity: "minor" });  // placeholder, not scored
+      }
+      globalIdx++;
+    });
+    if (selectedSectionIds.includes(sec.id)) {
+      sectionMap.push({ name: sec.label, itemIndices: indices });
+    }
+  });
+
+  return { items, sectionMap };
+}
+
+// Convert string-keyed answers to number-keyed responses expected by engine.
+function buildEngineResponses(
+  answers: Record<string, string>,
+  comments: Record<string, string>,
+  selectedSectionIds: string[]
+): Record<number, { answer: string; comment: string }> {
+  const responses: Record<number, { answer: string; comment: string }> = {};
+  let globalIdx = 0;
+  SECTIONS.forEach(sec => {
+    sec.items.forEach(item => {
+      if (selectedSectionIds.includes(sec.id)) {
+        responses[globalIdx] = { answer: answers[item.id] ?? '', comment: comments[item.id] ?? '' };
+      }
+      globalIdx++;
+    });
+  });
+  return responses;
+}
+
 function buildAuditPayload(
   id: string, mode: string,
   answers: Record<string, string>,
@@ -27,26 +81,40 @@ function buildAuditPayload(
 ): StoredAudit {
   let globalIdx = 0;
   const findings: StoredFinding[] = [];
-  let yes = 0, applicable = 0;
 
   SECTIONS.forEach(sec => {
     sec.items.forEach(item => {
       if (selectedSectionIds.includes(sec.id)) {
         const ans = answers[item.id];
-        if (ans !== "na") { applicable++; if (ans === "yes") yes++; }
-        if (ans === "no") findings.push({ itemIndex: globalIdx, sectionName: sec.label, question: item.text, severity: mapSev(getSeverity(sec.id, item.id)), comment: comments[item.id] || "", status: "open" });
+        if (ans === "no") findings.push({
+          itemIndex: globalIdx,
+          sectionName: sec.label,
+          question: item.text,
+          severity: mapSev(getSeverity(sec.id, item.id)),
+          comment: comments[item.id] || "",
+          status: "open",
+        });
       }
       globalIdx++;
     });
   });
 
-  const score = applicable > 0 ? Math.round((yes / applicable) * 100) : 0;
-  const now   = new Date().toISOString();
+  // Weight-aware scoring via canonical engine
+  const { items, sectionMap } = buildScoringInputs(selectedSectionIds);
+  const responses = buildEngineResponses(answers, comments, selectedSectionIds);
+  const config = getThresholds();
+  const auditScore: AuditScore = calculateScore(responses, items, sectionMap, config);
+
+  const now = new Date().toISOString();
   return {
-    id, checklistName: "SPD Compliance Audit",
+    id,
+    checklistName: "SPD Compliance Audit",
     mode: mode === "full" ? "full" : "focus",
     startedAt: now,
-    ...(completed ? { completedAt: now, status: "completed", score, findings } : { status: "in-progress", findings: [] }),
+    ...(completed
+      ? { completedAt: now, status: "completed", score: auditScore.overall, auditScore, findings }
+      : { status: "in-progress", findings: [] }
+    ),
     responses: {},
   };
 }
@@ -54,14 +122,14 @@ function buildAuditPayload(
 // ─── MAIN PAGE ────────────────────────────────────────────────────────────────
 
 export default function SPDIntelChecklist() {
-  const [phase,              setPhase]              = useState<"mode"|"picker"|"audit"|"report">("mode");
-  const [auditMode,          setAuditMode]          = useState<string | null>(null);
-  const [selectedSectionIds, setSelectedSectionIds] = useState<string[]>([]);
-  const [currentSectionIndex,setCurrentSectionIndex]= useState(0);
-  const [answers,            setAnswers]            = useState<Record<string, string>>({});
-  const [comments,           setComments]           = useState<Record<string, string>>({});
-  const [auditId,            setAuditId]            = useState<string | null>(null);
-  const [resumeAudit,        setResumeAudit]        = useState<StoredAudit | null>(null);
+  const [phase,               setPhase]               = useState<"mode"|"picker"|"audit"|"report">("mode");
+  const [auditMode,           setAuditMode]           = useState<string | null>(null);
+  const [selectedSectionIds,  setSelectedSectionIds]  = useState<string[]>([]);
+  const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
+  const [answers,             setAnswers]             = useState<Record<string, string>>({});
+  const [comments,            setComments]            = useState<Record<string, string>>({});
+  const [auditId,             setAuditId]             = useState<string | null>(null);
+  const [resumeAudit,         setResumeAudit]         = useState<StoredAudit | null>(null);
   const skipSave = useRef(true);
 
   useEffect(() => {

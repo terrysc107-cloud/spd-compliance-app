@@ -28,6 +28,13 @@ function scoreColor(score?: number): string {
   return tokens.color.danger
 }
 
+function scoreLevelBadge(score?: number): { label: string; variant: 'success' | 'warning' | 'danger' | 'default' } {
+  if (score === undefined) return { label: '—', variant: 'default' }
+  if (score >= 90) return { label: 'Pass',     variant: 'success' }
+  if (score >= 70) return { label: 'Marginal', variant: 'warning' }
+  return               { label: 'Fail',     variant: 'danger'  }
+}
+
 function statusVariant(s: string): 'success' | 'info' | 'default' {
   if (s === 'completed')  return 'success'
   if (s === 'in-progress') return 'info'
@@ -164,6 +171,12 @@ export default function AuditsPage() {
                   }}>
                     {audit.score !== undefined ? `${audit.score}%` : '—'}
                   </span>
+
+                  {/* Score level badge */}
+                  {(() => {
+                    const { label, variant } = scoreLevelBadge(audit.score)
+                    return <Badge variant={variant} size="sm">{label}</Badge>
+                  })()}
 
                   {/* Status */}
                   <Badge variant={statusVariant(audit.status)} size="sm">

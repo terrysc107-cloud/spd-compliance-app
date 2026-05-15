@@ -1,5 +1,8 @@
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
+import type { AuditScore } from '@/lib/scoring/engine'
+export type { AuditScore }
+
 export interface StoredFinding {
   itemIndex:       number
   sectionName:     string
@@ -21,6 +24,7 @@ export interface StoredAudit {
   responses:       Record<number, { answer: 'yes' | 'no' | 'na'; comment: string }>
   sectionIndex?:   number                     // for focus audits
   score?:          number                     // overall % compliance
+  auditScore?:     AuditScore                 // full weighted scoring result (Phase 06+)
   findings:        StoredFinding[]
 }
 
