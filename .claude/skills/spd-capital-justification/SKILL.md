@@ -125,7 +125,7 @@ Regulatory frame:
 ## Executive Summary Format (1 page)
 
 ```
-[HEADER: Virtua Mount Holly — Central Sterile Services]
+[HEADER: [Facility Name] — Central Sterile Services]
 [DATE]
 
 CAPITAL REQUEST: [Title]

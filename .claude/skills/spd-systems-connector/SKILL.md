@@ -44,7 +44,7 @@ OR BEHAVIOR → SPD OUTCOMES
 
 OR scheduling changes → SPD throughput stress
   Add-on cases added at 11pm cause overnight throughput spikes
-  If Pete's shift isn't staffed for surges, tray quality suffers
+  If the night shift isn't staffed for surges, tray quality suffers
 
 OR preference card accuracy → SPD count sheet accuracy
   If preference cards don't match count sheets, SPD builds wrong trays
@@ -170,11 +170,9 @@ GAPS IDENTIFIED:
 ─────────────────────────────────────────────────────────────
 ```
 
-## Unlikely Cause-Effect Patterns (Known at MEMH)
+## Unlikely Cause-Effect Patterns (Non-Obvious Connections Most Departments Miss)
 
-These are the non-obvious connections most departments miss:
-
-1. **OR schedule compression → night shift quality decline** — When OR schedules are heavy and late cases run long, instruments return to SPD after Pete starts his shift with a smaller team. Night throughput pressure increases; tray quality risk rises.
+1. **OR schedule compression → night shift quality decline** — When OR schedules are heavy and late cases run long, instruments return to SPD at the start of the night shift with a smaller team. Night throughput pressure increases; tray quality risk rises.
 
 2. **Vendor credentialing lag → IUSS rate increase** — When vendor reps can't enter to deliver loaners on time, SPD can't process. OR requests flash sterilization to avoid delay. IUSS rate rises. Nobody connects it to the credentialing system.
 
@@ -182,7 +180,7 @@ These are the non-obvious connections most departments miss:
 
 4. **Budget approval timing → equipment failure risk** — The sterilizer that fails in March was the subject of a capital request the prior September that was deferred. The real risk was taken 6 months before the failure.
 
-5. **Traveler orientation gaps → error clustering** — Travelers who are not oriented to MEMH-specific SOPs produce errors that cluster in the first 2 weeks of each contract. Tracking errors by employee type reveals this pattern.
+5. **Traveler orientation gaps → error clustering** — Travelers who are not oriented to facility-specific SOPs produce errors that cluster in the first 2 weeks of each contract. Tracking errors by employee type reveals this pattern.
 
 ---
 

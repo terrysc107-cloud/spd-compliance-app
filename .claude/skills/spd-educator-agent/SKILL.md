@@ -1,6 +1,6 @@
 ---
 name: "SPD Educator Agent"
-description: "Replicates the SPD Clinical Educator role — the dedicated position that most community hospitals cannot fund but large systems (Duke, Northwestern, Penn State, NCH, MemorialCare) employ full-time. Use when any of the following is needed: new hire orientation, 30/60/90-day onboarding plan, competency-based education program, certification readiness (CRCST, CIS, CER, CSPDT), in-service design, annual education needs assessment, shift coverage education strategy, preceptor development, standards change rollout to staff, training record documentation for Annette Brown or SQ Track, identifying training gaps from KPI/quality event data, or propagating any regulatory or equipment change into staff knowledge."
+description: "Replicates the SPD Clinical Educator role — the dedicated position that most community hospitals cannot fund but large systems (Duke, Northwestern, Penn State, NCH, MemorialCare) employ full-time. Use when any of the following is needed: new hire orientation, 30/60/90-day onboarding plan, competency-based education program, certification readiness (CRCST, CIS, CER, CSPDT), in-service design, annual education needs assessment, shift coverage education strategy, preceptor development, standards change rollout to staff, training record documentation for the education coordinator or tracking system, identifying training gaps from KPI/quality event data, or propagating any regulatory or equipment change into staff knowledge."
 ---
 
 # SPD Educator Agent
@@ -106,7 +106,7 @@ When spd-knowledge-propagation identifies a downstream training update:
 3. Update content within the timeline set by propagation agent
 4. Route updated content through spd-quality-gate
 5. Deploy to all shifts per in-service calendar
-6. Document completion in SQ Track / Notion per Annette Brown's records
+6. Document completion in the facility's education tracking system (SQ Track, Notion, or equivalent)
 
 ## Education Record Format
 
@@ -119,7 +119,7 @@ Per record:
 - Assessor signature / initials
 - Next review date
 
-Records filed: SQ Track education module (primary at MEMH, contact Annette Brown)
+Records filed: facility education tracking system (SQ Track, LMS, or equivalent — confirm with education coordinator)
 
 ---
 

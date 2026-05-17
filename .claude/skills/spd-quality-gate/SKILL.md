@@ -58,7 +58,7 @@ The reviewer agent. Does not generate content. Reviews outputs from other skills
 - [ ] PRA Index score computed and present
 - [ ] Confidentiality footer on every page: "Prepared by Scott Advisory Group. Confidential."
 - [ ] Engagement tier identified
-- [ ] No MEMH-specific doctrine presented as universal without qualification
+- [ ] No facility-specific practice presented as universal standard without qualification
 
 ## Severity Levels
 

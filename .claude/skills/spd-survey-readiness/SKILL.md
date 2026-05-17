@@ -104,7 +104,7 @@ Pull immediately when requested:
 | Sterilizer load logs | [NEEDS INPUT FROM TERRY: SQ Track module or paper log location] |
 | Biological indicator log | [NEEDS INPUT FROM TERRY] |
 | Water quality records | [NEEDS INPUT FROM TERRY] |
-| Competency records | SQ Track education module / Annette Brown |
+| Competency records | facility education tracking system (SQ Track, LMS, or equivalent) |
 | IFU library | [NEEDS INPUT FROM TERRY: file location] |
 | Loaner intake records | SQ Track or paper log |
 | IUSS (flash sterilization) log | [NEEDS INPUT FROM TERRY] |
@@ -122,7 +122,7 @@ Expected answer: "I remove it from the tray, document it as a missing instrument
 Expected answer: "I notify my supervisor immediately, recall all loads from that sterilizer back to the last negative BI, document the event, and do not release loads until the cause is investigated and the sterilizer is re-qualified."
 
 **"What PPE do you wear in decontamination?"**
-Expected answer: "Surgical gown, shoe covers, eye protection or face shield, and two pairs of gloves — utility gloves under cut-resistant gloves [or as per MEMH SOP]."
+Expected answer: "Surgical gown, shoe covers, eye protection or face shield, and two pairs of gloves — utility gloves under cut-resistant gloves [or as specified in the facility PPE SOP]."
 
 **"How do you know what cleaning method to use for an instrument?"**
 Expected answer: "I follow the IFU — the manufacturer's written instructions for use. If I don't have the IFU, I can't process the instrument."

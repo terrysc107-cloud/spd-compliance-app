@@ -1,6 +1,6 @@
 ---
 name: "SPD Competency"
-description: "Staff competency assessment and validation skill for Sterile Processing using the Donna Wright competency framework. Use when: building initial competency assessments for new staff at hire or role change, developing ongoing competency verifications for annual or event-triggered reassessment, designing observable criteria for decontamination, assembly, sterilization, or endoscope processing, selecting the correct verification method matched to skill type (demonstration, direct observation, written test, simulation, return demonstration), documenting completed competency assessments in SQ Track or Annette Brown, identifying competency gaps from quality event data, responding to a survey finding that staff competency was not documented, or building the competency verification component of a new training program. Observable criteria only — not personality traits or work ethic."
+description: "Staff competency assessment and validation skill for Sterile Processing using the Donna Wright competency framework. Use when: building initial competency assessments for new staff at hire or role change, developing ongoing competency verifications for annual or event-triggered reassessment, designing observable criteria for decontamination, assembly, sterilization, or endoscope processing, selecting the correct verification method matched to skill type (demonstration, direct observation, written test, simulation, return demonstration), documenting completed competency assessments in the facility's education tracking system, identifying competency gaps from quality event data, responding to a survey finding that staff competency was not documented, or building the competency verification component of a new training program. Observable criteria only — not personality traits or work ethic."
 ---
 
 # SPD Competency
@@ -117,7 +117,7 @@ Remediation target date: [YYYY-MM-DD]
 Re-assessment date: [YYYY-MM-DD]
 ─────────────────────────────────────────────────────────────
 Assessor signature block: [role]   Date: [YYYY-MM-DD]
-Entered in [SQ Track / Annette Brown]: Y / N   Entry date: [YYYY-MM-DD]
+Entered in education tracking system: Y / N   Entry date: [YYYY-MM-DD]
 ```
 
 ## Event-Triggered Competency

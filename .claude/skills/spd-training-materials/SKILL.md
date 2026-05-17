@@ -131,11 +131,11 @@ Every new piece of equipment requires:
 
 ### Traveler Orientation Content
 
-Travelers are oriented to MEMH-specific SOPs — not general SPD technique. They already know the technique. The training gap is facility-specific systems, count sheets, and protocols.
+Travelers are oriented to facility-specific SOPs — not general SPD technique. They already know the technique. The training gap is facility-specific systems, count sheets, and protocols.
 
 Traveler orientation priority list:
-1. SQ Track navigation and documentation requirements
-2. MEMH-specific SOP locations and numbering (CSS-[AREA]-[SEQ])
+1. Tracking system navigation and documentation requirements (SQ Track or equivalent)
+2. Facility SOP locations and numbering (CSS-[AREA]-[SEQ])
 3. Case cart process and case readiness deadlines
 4. Shift handoff expectations
 5. Who to call for what (escalation contacts by role)
@@ -158,7 +158,7 @@ Supervisor competencies are different from technician competencies. Build superv
 Every in-service must produce:
 1. Sign-in sheet with name, role, and date — kept on file per facility policy
 2. Completed competency verification forms (where applicable)
-3. Record entered in [SQ Track / Annette Brown] within 5 business days
+3. Record entered in education tracking system within 5 business days
 
 **Record retention:** Per JCAHO and facility policy. Minimum 3 years for training records; longer if competency records (7 years typical).
 
@@ -170,7 +170,7 @@ Every in-service must produce:
 - Do NOT deliver an in-service without a competency verification plan attached
 - Do NOT reference a specific quality event or name individuals in training content
 - Do NOT use a sign-in sheet as the only evidence of competency — the sign-in proves attendance, not learning
-- Do NOT build traveler orientation around general technique — MEMH-specific systems are the gap
+- Do NOT build traveler orientation around general technique — facility-specific systems are the gap
 
 ## Wiring
 

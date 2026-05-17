@@ -82,7 +82,7 @@ Root cause category:
   □ Systems/External (count sheet, preference card, vendor, supply chain, procurement)
 ```
 
-**Naming rule:** No individual staff names in root cause statements. Write "A technician in the assembly area" not "Sarah in assembly." Write "the night shift" not "Pete's team."
+**Naming rule:** No individual staff names in root cause statements. Write "A technician in the assembly area" not "Sarah in assembly." Write "the night shift team" not a supervisor's name.
 
 ## Full RCA — Tier 1 and Tier 2 Events
 

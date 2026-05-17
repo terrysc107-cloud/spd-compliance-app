@@ -1,6 +1,6 @@
 ---
 name: "SPD Orchestrator"
-description: "Director agent for the SPD AI Operating System. Routes every sterile processing request to the correct skill chain: Full Chain (regulatory → gate → output) for RCAs, CAPs, SOPs, survey responses, and SAG deliverables; Educator Chain for training, onboarding, and standards propagation; Operational Fast Track for KPI packets, shift handoffs, and internal emails; Direct Output for quick lookups and data queries. Use this skill first for any SPD department request, quality event, compliance question, instrument issue, staffing problem, vendor concern, OR communication, or consulting engagement. Classifies input as internal Virtua vs. SAG client and as regulatory/safety-critical vs. operational vs. informational before routing."
+description: "Director agent for the SPD AI Operating System. Routes every sterile processing request to the correct skill chain: Full Chain (regulatory → gate → output) for RCAs, CAPs, SOPs, survey responses, and SAG deliverables; Educator Chain for training, onboarding, and standards propagation; Operational Fast Track for KPI packets, shift handoffs, and internal emails; Direct Output for quick lookups and data queries. Use this skill first for any SPD department request, quality event, compliance question, instrument issue, staffing problem, vendor concern, OR communication, or consulting engagement. Classifies input as internal facility vs. SAG client and as regulatory/safety-critical vs. operational vs. informational before routing."
 ---
 
 # SPD Orchestrator
@@ -14,7 +14,7 @@ The Director agent. Receives every request, applies triage logic, assigns the ri
 ### Step 1 — Classify the Input
 
 **Client type:**
-- Internal Virtua / MEMH → standard routing, no anonymization required
+- Internal facility → standard routing, no anonymization required
 - SAG client → anonymization rules apply; all outputs get confidentiality footer
 
 **Stake level:**
@@ -55,7 +55,7 @@ The Director agent. Receives every request, applies triage logic, assigns the ri
 Every output is tagged:
 ```
 [SOURCE SKILL: spd-xxx] [CHAIN: Full/Educator/FastTrack/Direct] [QUALITY GATE: Pass/Bypassed/Pending]
-[CLIENT: Virtua-Internal / SAG-Anonymized] [STAKE: Regulatory/Operational/Informational]
+[CLIENT: Facility-Internal / SAG-Anonymized] [STAKE: Regulatory/Operational/Informational]
 ```
 
 ## Escalation Triggers (Route to Terry Directly)

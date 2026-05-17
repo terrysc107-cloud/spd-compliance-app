@@ -1,6 +1,6 @@
 ---
 name: "SPD Document Design"
-description: "Visual document production skill for Sterile Processing. Produces work guides with photos, visual SOPs, laminated job aids, PDF forms, onboarding packets, count sheets, training handouts, competency checklists, and any branded document intended for physical floor use. Use when any of the following is needed: a document staff will use at the decon sink or assembly bench (not just read on screen), a step-by-step visual guide with photo placeholders, a quick reference card for lamination, a count sheet with image fields, an onboarding packet booklet, a competency checklist for hand-completion, a Virtua-branded leadership report, or a Scott Advisory Group client deliverable. A text SOP nobody reads is compliance theater — this skill produces documents that get used."
+description: "Visual document production skill for Sterile Processing. Produces work guides with photos, visual SOPs, laminated job aids, PDF forms, onboarding packets, count sheets, training handouts, competency checklists, and any branded document intended for physical floor use. Use when any of the following is needed: a document staff will use at the decon sink or assembly bench (not just read on screen), a step-by-step visual guide with photo placeholders, a quick reference card for lamination, a count sheet with image fields, an onboarding packet booklet, a competency checklist for hand-completion, a facility-branded leadership report, or a Scott Advisory Group client deliverable. A text SOP nobody reads is compliance theater — this skill produces documents that get used."
 ---
 
 # SPD Document Design
@@ -85,7 +85,7 @@ Single page. High contrast. Key steps only. For lamination and posting.
 
 ```
 [LARGE HEADER: TOPIC]
-Virtua Mount Holly — CSS Department      Version X.X | [YYYY-MM-DD]
+[Facility Name] — CSS Department      Version X.X | [YYYY-MM-DD]
 ─────────────────────────────────────────────────────────────────
 1. [Step — 16pt minimum font equivalent in markdown: **bold**]
 2. [Step]
@@ -146,10 +146,10 @@ Single page. One topic. For huddle distribution.
 - "Questions? See your supervisor or [contact]"
 - Document number and version in footer
 
-### Branded Leadership Report (Virtua)
+### Branded Leadership Report (Facility)
 
-Header: Virtua Mount Holly logo placement + `#005DAA` blue accent bar
-Footer: Document number | Version | Effective date | "Central Sterile Services — Virtua Mount Holly"
+Header: Facility logo placement + primary brand color accent bar `[NEEDS INPUT: facility brand colors]`
+Footer: Document number | Version | Effective date | "Central Sterile Services — [Facility Name]"
 
 ### SAG Client Deliverable
 
@@ -194,7 +194,7 @@ Every output includes version tag and effective date in the document footer.
 
 - Do NOT produce a document with paragraphs where numbered steps are required
 - Do NOT omit photo placeholders — they are production task items, not optional
-- Do NOT apply SAG branding to MEMH-internal documents or vice versa
+- Do NOT apply SAG branding to facility-internal documents or vice versa
 - Do NOT use font sizes below 12pt in any floor-use document
 - Do NOT use checkbox symbols `☐ ✓` in regulatory documents — use Y/N or Pass/Fail
 

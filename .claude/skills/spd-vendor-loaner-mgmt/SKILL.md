@@ -1,13 +1,13 @@
 ---
 name: "SPD Vendor Loaner Management"
-description: "Vendor and loaner instrumentation management skill for Sterile Processing. Covers active open issues at MEMH with Karl Storz, Stryker, Arthrex, ZimmerBiomet, V. Mueller, and Medovations. Use when: a vendor rep arrives with a loaner set, an IFU is missing at intake, a loaner tray needs to be entered in SQ Track, a vendor rep enters a restricted area, an IFU revision notification is received, a tray count at return doesn't match intake, instruments are damaged on return, a vendor hasn't responded to an escalation, credentialing needs verification, or any loaner-related documentation is required. IFU must be on file before processing begins — this is an FDA regulatory requirement, not a preference."
+description: "Vendor and loaner instrumentation management skill for Sterile Processing. Covers intake, IFU acquisition, vendor rep access control, return accountability, and vendor performance tracking for all loaner sets. Use when: a vendor rep arrives with a loaner set, an IFU is missing at intake, a loaner tray needs to be entered in the tracking system, a vendor rep enters a restricted area, an IFU revision notification is received, a tray count at return doesn't match intake, instruments are damaged on return, a vendor hasn't responded to an escalation, credentialing needs verification, or any loaner-related documentation is required. IFU must be on file before processing begins — this is an FDA regulatory requirement, not a preference."
 ---
 
 # SPD Vendor Loaner Management
 
 ## What This Skill Does
 
-Manages all vendor and loaner instrumentation workflows at MEMH. Covers intake, IFU acquisition, SQ Track entry, vendor rep access control, return accountability, and vendor performance tracking. Active open issues exist with Karl Storz, Stryker, Arthrex, ZimmerBiomet, V. Mueller, and Medovations.
+Manages all vendor and loaner instrumentation workflows. Covers intake, IFU acquisition, tracking system entry, vendor rep access control, return accountability, and vendor performance tracking.
 
 ## Loaner Intake Checklist
 
@@ -48,7 +48,7 @@ If IFU is not present at intake:
 ### Credentialing Verification
 
 Before any vendor rep enters SPD-controlled space:
-1. Check rep's hospital credentialing badge (Reptrax, Vendormate, or equivalent system used at Virtua)
+1. Check rep's hospital credentialing badge (Reptrax, Vendormate, or equivalent system in use at the facility)
 2. If not credentialed: rep does not enter; set is received at the dock only
 3. Log every access with rep name, company, time in, time out, escort name
 
@@ -64,7 +64,7 @@ If a vendor rep enters a restricted area without authorization or handles restri
 
 ### Maintaining the IFU Library
 
-- Every instrument or set processed at MEMH must have an IFU on file before first processing
+- Every instrument or set processed must have an IFU on file before first processing
 - File format: digital preferred (PDF); physical copy acceptable if digital unavailable
 - IFU file naming: `[VENDOR]-[SET NAME]-[VERSION DATE].pdf`
 
@@ -109,16 +109,13 @@ If instruments are returned damaged:
 
 ## Vendor Performance Tracking
 
-### Active Open Issues (MEMH — as of May 2026)
+### Active Open Issues
+
+Use this table to track open vendor issues. Update as issues open and close.
 
 | Vendor | Open Issue | Status |
 |---|---|---|
-| Karl Storz | [NEEDS INPUT FROM TERRY: describe open Karl Storz issue] | Open |
-| Stryker | [NEEDS INPUT FROM TERRY: describe open Stryker issue] | Open |
-| Arthrex | [NEEDS INPUT FROM TERRY: describe open Arthrex issue] | Open |
-| ZimmerBiomet | [NEEDS INPUT FROM TERRY: describe open ZimmerBiomet issue] | Open |
-| V. Mueller | [NEEDS INPUT FROM TERRY: describe open V. Mueller issue] | Open |
-| Medovations | [NEEDS INPUT FROM TERRY: describe open Medovations issue] | Open |
+| [Vendor name] | [Issue description] | Open / Resolved |
 
 ### Vendor Accountability Metrics (track per vendor)
 
