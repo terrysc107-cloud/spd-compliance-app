@@ -1,6 +1,54 @@
 # SPD Intel — Handoff
 
-## ✅ Latest checkpoint — ALL 3 SPRINTS COMPLETE (Survey Readiness OS build)
+## ✅ Latest checkpoint — Landing page rebuilt (light clinical) + dashboard-visibility bug fixed
+
+**Active task:** Audit + landing-page upgrade (plan: `~/.claude/plans/magical-bouncing-hanrahan.md`).
+
+**Root-cause found by audit:** Terry reported "didn't see any new dashboard." The new Survey
+Readiness OS dashboard was fine — but the **landing page was the old product** and every CTA
+routed to the legacy `/checklist` runner, so a logged-out visitor never entered the
+`/signup → /onboarding → /dashboard` flow. The OS was orphaned from its own front door.
+
+**What changed:**
+- **Rewrote `app/page.tsx`** — clean clinical **light** marketing page (white/soft-gray, single
+  trust-blue `#2563eb` accent, no purple gradients, no emoji → inline SVG line icons). Full
+  "Survey Readiness OS" repositioning: hero = *"Know your survey readiness before the surveyor
+  does"* with a JSX readiness-score mock (88% "Survey Ready" + factor bars mirroring
+  `ReadinessHero`/`FactorBars`). Sections: hero → trust strip → how-it-works (3 steps) →
+  capabilities (score/CAPA/AI advisor/PDF) → 7 compliance domains → use cases → CTA band →
+  footer. Kept the existing `useInView`/`AnimatedSection` reveal (+ added an IntersectionObserver
+  fallback so content can't stick at opacity:0).
+- **Routing fix (the actual bug):** primary CTAs → `/signup`; nav "Sign in" → `/login`;
+  secondary "Try a free audit — no login" → `/checklist` (legacy runner kept as a low-friction
+  taster, no longer the only door).
+- **New files:** `lib/constants/landing-theme.ts` (light tokens, scoped to landing only — global
+  dark `design-tokens.ts`/`globals.css` untouched, app stays dark) and
+  `lib/constants/landing-content.ts` (all copy + hero-mock data).
+- **`app/layout.tsx`** metadata retitled to the Survey Readiness OS positioning.
+
+**Checks run:**
+- `npx tsc --noEmit` → exit 0 (clean).
+- `pnpm build` → clean, `/` prerendered static; `/signup`,`/login`,`/checklist` all build.
+- Dev server (localhost:3000): verified hero + how-it-works + capabilities + 7 domains render
+  light; all 6 CTA hrefs confirmed (`/signup`×3 logical, `/login`, `/checklist`×2); curl on
+  `/signup`,`/login`,`/checklist` → 200; mobile (390px) hero stacks correctly. Only console error
+  is a pre-existing favicon 404. Screenshots saved at `/Users/terry/spd-{hero-desktop,how,
+  compliance,mobile,full}.png`.
+
+**Git:** on `main`, **NOT committed**. Changed: `app/page.tsx`, `app/layout.tsx`, new
+`lib/constants/landing-theme.ts` + `landing-content.ts` (plus pre-existing unstaged
+`.ai/HANDOFF.md`, `.gitignore`). Branch before committing per repo convention.
+
+**Next step / follow-ups:**
+- Eyeball the screenshots; then commit (suggest a `feat/landing-readiness-os` branch).
+- Swap the JSX hero mock for a **real dashboard screenshot** once a demo org is seeded
+  (onboarding has a demo-seed path).
+- Apply the same light treatment to `/login` + `/signup` for a consistent funnel.
+- Add real social proof (pilot-hospital quote) when available.
+
+---
+
+## ✅ Earlier checkpoint — ALL 3 SPRINTS COMPLETE (Survey Readiness OS build)
 
 **Status:** The $100K-ARR build plan is implemented end-to-end. `npx tsc --noEmit` clean; `pnpm build` clean (25 routes). DB foundation verified with a live signup test.
 
@@ -244,6 +292,86 @@ _(Older auto-generated checkpoints below were empty TODO stubs and have been sup
 ?? supabase/migrations/003_profile_on_signup.sql
 ?? supabase/migrations/004_readiness_capa_billing.sql
 ?? supabase/migrations/005_platform_admin.sql
+```
+
+### Summary
+- TODO: What changed?
+
+### Decisions / assumptions
+- TODO: Key choices Claude made.
+
+### Next steps
+- TODO: The next human/Hermes/Claude action.
+
+### Blockers / warnings
+- TODO: Anything unresolved, failing, risky, or needing the user.
+
+---
+## Handoff — 2026-06-10 07:01:30 EDT
+
+- Repo: /Users/terry/code/spd-compliance-app
+- Branch: main
+- Last commit: ff001c4 feat(ai): wire Anthropic provider directly via ANTHROPIC_API_KEY
+- Note: Claude Code stopped/finished a response. Fill in summary, decisions, next steps, and blockers.
+
+### Git status
+Clean working tree or not a git repo.
+
+### Summary
+- TODO: What changed?
+
+### Decisions / assumptions
+- TODO: Key choices Claude made.
+
+### Next steps
+- TODO: The next human/Hermes/Claude action.
+
+### Blockers / warnings
+- TODO: Anything unresolved, failing, risky, or needing the user.
+
+---
+## Handoff — 2026-06-10 07:08:07 EDT
+
+- Repo: /Users/terry/code/spd-compliance-app
+- Branch: main
+- Last commit: ff001c4 feat(ai): wire Anthropic provider directly via ANTHROPIC_API_KEY
+- Note: Claude Code stopped/finished a response. Fill in summary, decisions, next steps, and blockers.
+
+### Git status
+```
+ M .ai/HANDOFF.md
+ M .gitignore
+```
+
+### Summary
+- TODO: What changed?
+
+### Decisions / assumptions
+- TODO: Key choices Claude made.
+
+### Next steps
+- TODO: The next human/Hermes/Claude action.
+
+### Blockers / warnings
+- TODO: Anything unresolved, failing, risky, or needing the user.
+
+---
+## Handoff — 2026-06-10 07:54:40 EDT
+
+- Repo: /Users/terry/code/spd-compliance-app
+- Branch: main
+- Last commit: ff001c4 feat(ai): wire Anthropic provider directly via ANTHROPIC_API_KEY
+- Note: Claude Code stopped/finished a response. Fill in summary, decisions, next steps, and blockers.
+
+### Git status
+```
+ M .ai/HANDOFF.md
+ M .gitignore
+ M app/layout.tsx
+ M app/page.tsx
+ M next-env.d.ts
+?? lib/constants/landing-content.ts
+?? lib/constants/landing-theme.ts
 ```
 
 ### Summary
