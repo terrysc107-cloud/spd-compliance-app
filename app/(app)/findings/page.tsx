@@ -5,11 +5,11 @@ import Link from 'next/link'
 import PageShell from '@/components/layout/PageShell'
 import { Card, Badge } from '@/components/ui'
 import { tokens } from '@/lib/constants/design-tokens'
-import { getAllAudits } from '@/lib/storage/audit-storage'
-import { getCurrentUser, canViewAllDepartments } from '@/lib/storage/org-storage'
+import { getAllAudits } from '@/lib/db/audits'
+import { getMyProfile, canViewAllDepartments } from '@/lib/db/org'
 
 type SeverityFilter = 'all' | 'critical' | 'major' | 'minor'
-type StatusFilter   = 'all' | 'open' | 'in-progress' | 'resolved'
+type StatusFilter   = 'all' | 'open' | 'in-progress' | 'resolved' | 'overdue'
 type Sev = 'critical' | 'major' | 'minor'
 type Sta = 'open' | 'in-progress' | 'resolved'
 
@@ -17,6 +17,13 @@ interface FlatFinding {
   itemIndex: number; sectionName: string; question: string
   severity: Sev; comment: string; status: Sta; correctiveAction?: string
   auditId: string; auditDate: string; checklistName: string; departmentId?: string
+  dueDate?: string | null
+}
+
+const DAY = 24 * 60 * 60 * 1000
+function overdueDays(f: { dueDate?: string | null; status: string }): number {
+  if (!f.dueDate || f.status === 'resolved') return 0
+  return Math.floor((Date.now() - new Date(f.dueDate).getTime()) / DAY)
 }
 
 const sevVariant = (s: string) => s === 'critical' ? 'danger' : s === 'major' ? 'warning' : 'info' as const
@@ -36,26 +43,31 @@ export default function FindingsPage() {
   const [canViewAll, setCanViewAll] = useState(false)
 
   useEffect(() => {
-    const user = getCurrentUser()
-    const viewAll = canViewAllDepartments(user.role)
-    setCanViewAll(viewAll)
-    type AuditRow = { id: string; checklistName: string; startedAt: string; status: string; findings: FlatFinding[]; departmentId?: string }
-    const audits = getAllAudits() as unknown as AuditRow[]
-    const scoped = viewAll
-      ? audits
-      : audits.filter(a => !a.departmentId || a.departmentId === user.departmentId)
-    setFindings(
-      scoped.filter(a => a.status === 'completed')
-        .flatMap(a => (a.findings ?? []).map(f => ({
-          ...f, auditId: a.id, auditDate: a.startedAt,
-          checklistName: a.checklistName, departmentId: a.departmentId,
-        })))
-    )
+    (async () => {
+      const profile = await getMyProfile()
+      const viewAll = profile ? canViewAllDepartments(profile.role) : true
+      setCanViewAll(viewAll)
+      const audits = await getAllAudits()
+      const scoped = viewAll
+        ? audits
+        : audits.filter(a => !a.departmentId || a.departmentId === profile?.departmentId)
+      setFindings(
+        scoped.filter(a => a.status === 'completed')
+          .flatMap(a => (a.findings ?? []).map(f => ({
+            itemIndex: f.itemIndex, sectionName: f.sectionName, question: f.question,
+            severity: f.severity as Sev, comment: f.comment, status: f.status as Sta,
+            correctiveAction: f.correctiveAction, dueDate: f.dueDate,
+            auditId: a.id, auditDate: a.startedAt,
+            checklistName: a.checklistName, departmentId: a.departmentId,
+          })))
+      )
+    })().catch(() => {})
   }, [])
 
   const filtered = findings.filter(f =>
     (severity === 'all' || f.severity === severity) &&
-    (statusFilter === 'all' || f.status === statusFilter)
+    (statusFilter === 'all'
+      || (statusFilter === 'overdue' ? overdueDays(f) > 0 : f.status === statusFilter))
   )
 
   const openCounts = {
@@ -96,8 +108,8 @@ export default function FindingsPage() {
           </select>
           <span style={{ color: tokens.color.textMuted, fontSize: 13, marginLeft: 8 }}>Status:</span>
           <select style={selectStyle} value={statusFilter} onChange={e => setStatus(e.target.value as StatusFilter)}>
-            {(['all','open','in-progress','resolved'] as const).map(v =>
-              <option key={v} value={v}>{staLabel(v === 'all' ? 'all' : v)}</option>)}
+            {(['all','open','in-progress','resolved','overdue'] as const).map(v =>
+              <option key={v} value={v}>{v === 'all' ? 'All' : staLabel(v)}</option>)}
           </select>
           <span style={{ marginLeft: 'auto', color: tokens.color.textDimmed, fontSize: 12 }}>
             {filtered.length} finding{filtered.length !== 1 ? 's' : ''}
@@ -139,6 +151,16 @@ export default function FindingsPage() {
                       {f.departmentId ? ` · ${f.departmentId}` : ''}
                     </p>
                   </div>
+                  {(() => {
+                    const od = overdueDays(f)
+                    if (od > 0) return <Badge variant="danger" size="sm">{od}d overdue</Badge>
+                    if (f.dueDate && f.status !== 'resolved') return (
+                      <span style={{ fontSize: 12, color: tokens.color.textMuted, whiteSpace: 'nowrap', alignSelf: 'center' }}>
+                        due {fmt(f.dueDate)}
+                      </span>
+                    )
+                    return null
+                  })()}
                   <Badge variant={sevVariant(f.severity) as 'danger' | 'warning' | 'info'} size="sm">
                     {f.severity.charAt(0).toUpperCase() + f.severity.slice(1)}
                   </Badge>

@@ -7,9 +7,10 @@ import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { ProgressBar } from '@/components/ui/ProgressBar'
-import { getAudit, StoredAudit, StoredFinding } from '@/lib/storage/audit-storage'
+import { getAudit } from '@/lib/db/audits'
+import type { StoredAudit, StoredFinding } from '@/lib/db/types'
 import { getScoreStatus, getScoreColor, SectionResult } from '@/lib/scoring/engine'
-import { getThresholds } from '@/lib/storage/threshold-storage'
+import { getThresholds, DEFAULT_THRESHOLDS, type ThresholdConfig } from '@/lib/db/thresholds'
 import { tokens } from '@/lib/constants/design-tokens'
 import { SECTIONS } from '@/lib/data/checklist-sections'
 import TrendComparison from '@/components/assessment/TrendComparison'
@@ -30,8 +31,7 @@ function fmtDate(iso: string): string {
 }
 
 // Fallback for audits stored before Phase 06 (no auditScore). Count-based approximation.
-function legacySectionRows(audit: StoredAudit) {
-  const config = getThresholds()
+function legacySectionRows(audit: StoredAudit, config: ThresholdConfig) {
   return SECTIONS.map(sec => {
     const fails = audit.findings.filter(f => f.sectionName === sec.label).length
     const score = Math.round(((sec.items.length - fails) / sec.items.length) * 100)
@@ -50,15 +50,18 @@ export default function AuditResultsPage() {
   const [audit,    setAudit]    = useState<StoredAudit | null>(null)
   const [findings, setFindings] = useState<StoredFinding[]>([])
   const [notFound, setNotFound] = useState(false)
+  const [thresholds, setThresholds] = useState<ThresholdConfig>(DEFAULT_THRESHOLDS)
 
   const loadAudit = useCallback(() => {
-    const stored = getAudit(id)
-    if (!stored) { setNotFound(true); return }
-    setAudit(stored)
-    setFindings(stored.findings)
+    getAudit(id).then(stored => {
+      if (!stored) { setNotFound(true); return }
+      setAudit(stored)
+      setFindings(stored.findings)
+    }).catch(() => setNotFound(true))
   }, [id])
 
   useEffect(() => { loadAudit() }, [loadAudit])
+  useEffect(() => { getThresholds().then(setThresholds).catch(() => {}) }, [])
 
   if (notFound) return (
     <PageShell title="Audit Not Found">
@@ -70,8 +73,7 @@ export default function AuditResultsPage() {
   if (!audit) return <PageShell title="Loading…"><p style={{ color: tokens.color.textMuted }}>Loading…</p></PageShell>
 
   const score    = audit.score ?? 0
-  const config   = getThresholds()
-  const status   = audit.auditScore?.status ?? getScoreStatus(score, config)
+  const status   = audit.auditScore?.status ?? getScoreStatus(score, thresholds)
   const color    = getScoreColor(status)
   const variant  = statusToVariant(status)
 
@@ -81,7 +83,7 @@ export default function AuditResultsPage() {
   // Prefer engine section data; fall back to legacy approximation for old audits
   const sectionRows = audit.auditScore
     ? engineSectionRows(audit.auditScore.sections)
-    : legacySectionRows(audit)
+    : legacySectionRows(audit, thresholds)
 
   // Severity breakdown: prefer engine counts, fall back to counting findings
   const criticalFails = audit.auditScore?.criticalFailCount

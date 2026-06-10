@@ -10,7 +10,7 @@ import {
   cloneChecklist,
   saveCustomChecklist,
   deleteCustomChecklist,
-} from '@/lib/storage/checklist-storage'
+} from '@/lib/db/checklists'
 import type { ChecklistTemplate, ChecklistCategory } from '@/lib/types/checklist'
 
 // ─── CATEGORY FILTER TABS ─────────────────────────────────────────────────────
@@ -46,8 +46,9 @@ export default function ChecklistsPage() {
   const [search, setSearch]             = useState('')
 
   const reload = useCallback(() => {
-    const custom = getAllCustomChecklists()
-    setAllTemplates(getAllTemplates(custom))
+    getAllCustomChecklists()
+      .then(custom => setAllTemplates(getAllTemplates(custom)))
+      .catch(() => setAllTemplates(getAllTemplates([])))
   }, [])
 
   useEffect(() => { reload() }, [reload])
@@ -63,14 +64,12 @@ export default function ChecklistsPage() {
   function handleClone(template: ChecklistTemplate) {
     const newName = `${template.name} (Copy)`
     const cloned  = cloneChecklist(template, newName)
-    saveCustomChecklist(cloned)
-    reload()
+    saveCustomChecklist(cloned).then(reload).catch(() => {})
   }
 
   function handleDelete(id: string) {
     if (!confirm('Delete this checklist? This cannot be undone.')) return
-    deleteCustomChecklist(id)
-    reload()
+    deleteCustomChecklist(id).then(reload).catch(() => {})
   }
 
   // ─── RENDER ─────────────────────────────────────────────────────────────────

@@ -4,24 +4,12 @@ import { useEffect, useState } from 'react'
 import PageShell from '@/components/layout/PageShell'
 import { Card, Badge, Button } from '@/components/ui'
 import { tokens } from '@/lib/constants/design-tokens'
-import { getAllAudits } from '@/lib/storage/audit-storage'
-import { getCurrentUser, canViewAllDepartments } from '@/lib/storage/org-storage'
+import { getAllAudits } from '@/lib/db/audits'
+import type { StoredAudit } from '@/lib/db/types'
+import { getMyProfile, canViewAllDepartments } from '@/lib/db/org'
 
 type StatusFilter = 'all' | 'in-progress' | 'completed'
 type DateFilter   = '7d' | '30d' | 'all'
-
-interface StoredAudit {
-  id: string
-  checklistName: string
-  mode: 'full' | 'focus'
-  startedAt: string
-  completedAt?: string
-  status: 'in-progress' | 'completed'
-  score?: number
-  findings: unknown[]
-  departmentId?: string
-  conductedBy?: string
-}
 
 function scoreColor(score?: number): string {
   if (score === undefined) return tokens.color.textMuted
@@ -73,20 +61,22 @@ export default function AuditsPage() {
   const [userDeptId, setUserDeptId] = useState<string>('')
 
   useEffect(() => {
-    const user = getCurrentUser()
-    const viewAll = canViewAllDepartments(user.role)
-    setCanViewAll(viewAll)
-    setUserDeptId(user.departmentId)
+    (async () => {
+      const profile = await getMyProfile()
+      const viewAll = profile ? canViewAllDepartments(profile.role) : true
+      setCanViewAll(viewAll)
+      setUserDeptId(profile?.departmentId ?? '')
 
-    const raw = getAllAudits() as StoredAudit[]
-    const scoped = viewAll
-      ? raw
-      : raw.filter(a => !a.departmentId || a.departmentId === user.departmentId)
+      const raw = await getAllAudits()
+      const scoped = viewAll
+        ? raw
+        : raw.filter(a => !a.departmentId || a.departmentId === profile?.departmentId)
 
-    const sorted = [...scoped].sort(
-      (a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()
-    )
-    setAudits(sorted)
+      const sorted = [...scoped].sort(
+        (a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()
+      )
+      setAudits(sorted)
+    })().catch(() => {})
   }, [])
 
   const filtered = audits.filter((a) => {

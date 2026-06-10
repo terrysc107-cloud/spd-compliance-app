@@ -79,6 +79,7 @@ export default function LoginPage() {
       </h1>
       <p style={{ color: '#8899cc', fontSize: 13, marginBottom: 24 }}>
         SPD Compliance Platform
+        <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.08em', color: '#a5b4fc', background: 'rgba(99,102,241,0.18)', border: '1px solid rgba(99,102,241,0.35)', borderRadius: 999, padding: '2px 6px', marginLeft: 8 }}>BETA</span>
       </p>
 
       <form onSubmit={handleSubmit}>

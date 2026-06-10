@@ -40,6 +40,44 @@ Generate a structured compliance report with exactly these 5 sections using ## h
 Be clinical, direct, and specific. Reference AAMI ST79, CMS CoP, and Joint Commission standards where relevant.`
 }
 
+interface ReadinessAdvisorData {
+  score: number
+  band: string
+  daysToSurvey: number | null
+  factors: { label: string; score: number; detail: string }[]
+  openCritical: number
+  openMajor: number
+  overdueCount: number
+  topFindings: { question: string; severity: string; status: string; overdueDays: number }[]
+}
+
+function buildReadinessPrompt(d: ReadinessAdvisorData): string {
+  const factors = d.factors.map(f => `  - ${f.label}: ${f.score}/100 (${f.detail})`).join('\n')
+  const findings = d.topFindings.slice(0, 8)
+    .map((f, i) => `  ${i + 1}. [${f.severity}] "${f.question}" — ${f.status}${f.overdueDays > 0 ? `, ${f.overdueDays}d overdue` : ''}`)
+    .join('\n') || '  None open'
+
+  return `You are a sterile processing (SPD) survey-readiness consultant advising a department leader. You assess readiness for Joint Commission, CMS Conditions of Participation, and AAMI ST79/ST91/ST108 surveys. Your job is to explain the readiness score and tell them exactly what to do next — not to restate the number.
+
+Current Readiness Score: ${d.score}/100 (${d.band})
+${d.daysToSurvey !== null ? `Days until survey: ${d.daysToSurvey}` : 'No survey date set'}
+Open critical findings: ${d.openCritical} · Open major findings: ${d.openMajor} · Overdue corrective actions: ${d.overdueCount}
+
+Factor breakdown:
+${factors}
+
+Highest-priority open findings:
+${findings}
+
+Write a tight, clinical briefing with EXACTLY these four sections using ## headers:
+## Current Risk Summary
+## High-Priority Findings
+## Recommended Actions
+## Survey-Prep Checklist
+
+Be specific and reference the relevant standard (AAMI ST79/ST91/ST108, CMS CoP, Joint Commission) for each recommendation. Prioritize overdue corrective actions and open critical findings. No filler.`
+}
+
 function buildLegacyPrompt(checklistData: Record<string, unknown>): string {
   const { profile, sectionScores, gaps, gapCount } = checklistData as Record<string, string | number>
   return `You are an expert sterile processing quality consultant reviewing a compliance self-assessment for a healthcare facility.
@@ -70,18 +108,26 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json()
-    const { reportData, checklistData } = body as { reportData?: ReportData; checklistData?: Record<string, unknown> }
-
-    if (!reportData && !checklistData) {
-      return Response.json({ error: 'Either reportData or checklistData is required' }, { status: 400 })
+    const { reportData, readinessData, checklistData } = body as {
+      reportData?: ReportData
+      readinessData?: ReadinessAdvisorData
+      checklistData?: Record<string, unknown>
     }
 
-    const prompt = reportData ? buildStructuredPrompt(reportData) : buildLegacyPrompt(checklistData!)
+    if (!reportData && !readinessData && !checklistData) {
+      return Response.json({ error: 'reportData, readinessData, or checklistData is required' }, { status: 400 })
+    }
+
+    const prompt = readinessData
+      ? buildReadinessPrompt(readinessData)
+      : reportData
+        ? buildStructuredPrompt(reportData)
+        : buildLegacyPrompt(checklistData!)
 
     const result = await generateText({
-      model: 'anthropic/claude-sonnet-4-20250514',
+      model: 'anthropic/claude-opus-4-8',
       prompt,
-      maxOutputTokens: 2000,
+      maxOutputTokens: 2500,
     })
 
     return Response.json({ report: result.text })

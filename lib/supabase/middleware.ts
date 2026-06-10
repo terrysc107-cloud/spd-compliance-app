@@ -41,7 +41,9 @@ export async function updateSession(request: NextRequest) {
     request.nextUrl.pathname.startsWith('/analytics') ||
     request.nextUrl.pathname.startsWith('/import') ||
     request.nextUrl.pathname.startsWith('/reports') ||
-    request.nextUrl.pathname.startsWith('/settings')
+    request.nextUrl.pathname.startsWith('/settings') ||
+    request.nextUrl.pathname.startsWith('/admin') ||
+    request.nextUrl.pathname.startsWith('/onboarding')
 
   if (!user && isProtectedRoute) {
     return NextResponse.redirect(new URL('/login', request.url))

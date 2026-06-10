@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import PageShell from '@/components/layout/PageShell'
 import { Button, Badge, Card, Input } from '@/components/ui'
 import { tokens } from '@/lib/constants/design-tokens'
-import { getAllCustomChecklists, updateCustomChecklist } from '@/lib/storage/checklist-storage'
+import { getAllCustomChecklists, updateCustomChecklist } from '@/lib/db/checklists'
 import type {
   ChecklistTemplate,
   ChecklistItemDef,
@@ -173,15 +173,18 @@ export default function ChecklistEditPage() {
   const [items, setItems]       = useState<ChecklistItemDef[]>([])
 
   useEffect(() => {
-    if (typeof window === 'undefined') return
-    const custom = getAllCustomChecklists().find(t => t.id === id)
-    if (!custom || custom.isBuiltIn) { setNotEditable(true); return }
-    setTemplate(custom)
-    setName(custom.name)
-    setDesc(custom.description)
-    setCategory(custom.category)
-    setVersion(custom.version)
-    setItems(custom.items)
+    getAllCustomChecklists()
+      .then(all => {
+        const custom = all.find(t => t.id === id)
+        if (!custom || custom.isBuiltIn) { setNotEditable(true); return }
+        setTemplate(custom)
+        setName(custom.name)
+        setDesc(custom.description)
+        setCategory(custom.category)
+        setVersion(custom.version)
+        setItems(custom.items)
+      })
+      .catch(() => setNotEditable(true))
   }, [id])
 
   const updateItem = useCallback((index: number, updated: ChecklistItemDef) => {
@@ -205,14 +208,13 @@ export default function ChecklistEditPage() {
       category,
       version,
       items: items.map((it, i) => ({ ...it, order: i + 1 })),
-    })
-    router.push('/checklists')
+    }).then(() => router.push('/checklists')).catch(() => setSaving(false))
   }
 
   function handleArchive() {
     if (!template) return
     updateCustomChecklist(id, { status: 'archived' })
-    router.push('/checklists')
+      .then(() => router.push('/checklists')).catch(() => {})
   }
 
   // ── Blocked: built-in or not found ─────────────────────────────────────────

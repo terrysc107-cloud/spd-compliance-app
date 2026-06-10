@@ -7,6 +7,7 @@ export async function createServerSupabaseClient() {
     process.env.NEXT_PUBLIC_SUPABASE_URL ?? '',
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '',
     {
+      db: { schema: 'spd' },
       cookies: {
         getAll() {
           return cookieStore.getAll()

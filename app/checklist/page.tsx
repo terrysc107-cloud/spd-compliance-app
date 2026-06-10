@@ -4,10 +4,11 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import Link from "next/link";
 import { SECTIONS } from "@/lib/data/checklist-sections";
 import { getSeverity } from "@/lib/data/severity-map";
-import { saveAudit, getAllAudits, StoredAudit, StoredFinding } from "@/lib/storage/audit-storage";
-import { getCurrentUser, getCurrentDepartmentId } from "@/lib/storage/org-storage";
+import { saveAudit, getAllAudits } from "@/lib/db/audits";
+import { snapshotNow } from "@/lib/db/readiness";
+import type { StoredAudit, StoredFinding } from "@/lib/db/types";
 import { calculateScore, AuditScore } from "@/lib/scoring/engine";
-import { getThresholds } from "@/lib/storage/threshold-storage";
+import { getThresholds, DEFAULT_THRESHOLDS, type ThresholdConfig } from "@/lib/db/thresholds";
 import AuditModeSelector from "@/components/checklist/AuditModeSelector";
 import SectionPicker from "@/components/checklist/SectionPicker";
 import ChecklistItemRow from "@/components/checklist/ChecklistItemRow";
@@ -78,7 +79,8 @@ function buildAuditPayload(
   answers: Record<string, string>,
   comments: Record<string, string>,
   selectedSectionIds: string[],
-  completed: boolean
+  completed: boolean,
+  thresholds: ThresholdConfig
 ): StoredAudit {
   let globalIdx = 0;
   const findings: StoredFinding[] = [];
@@ -103,19 +105,16 @@ function buildAuditPayload(
   // Weight-aware scoring via canonical engine
   const { items, sectionMap } = buildScoringInputs(selectedSectionIds);
   const responses = buildEngineResponses(answers, comments, selectedSectionIds);
-  const config = getThresholds();
-  const auditScore: AuditScore = calculateScore(responses, items, sectionMap, config);
+  const auditScore: AuditScore = calculateScore(responses, items, sectionMap, thresholds);
 
   const now = new Date().toISOString();
-  const currentUser = getCurrentUser();
-  const deptId = getCurrentDepartmentId();
+  // org/department/conductor are derived server-side in saveAudit() from the
+  // signed-in profile, so they are not set here.
   return {
     id,
     checklistName: "SPD Compliance Audit",
     mode: mode === "full" ? "full" : "focus",
     startedAt: now,
-    departmentId: deptId,
-    conductedBy: currentUser.name,
     ...(completed
       ? { completedAt: now, status: "completed", score: auditScore.overall, auditScore, findings }
       : { status: "in-progress", findings: [] }
@@ -135,17 +134,24 @@ export default function SPDIntelChecklist() {
   const [comments,            setComments]            = useState<Record<string, string>>({});
   const [auditId,             setAuditId]             = useState<string | null>(null);
   const [resumeAudit,         setResumeAudit]         = useState<StoredAudit | null>(null);
+  const [thresholds,          setThresholds]          = useState<ThresholdConfig>(DEFAULT_THRESHOLDS);
   const skipSave = useRef(true);
 
   useEffect(() => {
-    const inProgress = getAllAudits().find(a => a.status === "in-progress");
-    if (inProgress) setResumeAudit(inProgress);
+    getThresholds().then(setThresholds).catch(() => {});
+    getAllAudits()
+      .then(all => {
+        const inProgress = all.find(a => a.status === "in-progress");
+        if (inProgress) setResumeAudit(inProgress);
+      })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
     if (skipSave.current) { skipSave.current = false; return; }
     if (!auditId || phase !== "audit") return;
-    saveAudit(buildAuditPayload(auditId, auditMode ?? "full", answers, comments, selectedSectionIds, false));
+    saveAudit(buildAuditPayload(auditId, auditMode ?? "full", answers, comments, selectedSectionIds, false, thresholds))
+      .catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [answers, comments]);
 
@@ -166,7 +172,9 @@ export default function SPDIntelChecklist() {
 
   const handleComplete = () => {
     if (!auditId) return;
-    saveAudit(buildAuditPayload(auditId, auditMode ?? "full", answers, comments, selectedSectionIds, true));
+    saveAudit(buildAuditPayload(auditId, auditMode ?? "full", answers, comments, selectedSectionIds, true, thresholds))
+      .then(() => snapshotNow())   // capture a readiness snapshot for the trend
+      .catch(() => {});
     setPhase("report");
   };
 

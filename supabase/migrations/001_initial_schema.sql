@@ -1,27 +1,34 @@
--- Enable UUID extension
-create extension if not exists "uuid-ossp";
+-- SPD Intel lives in a dedicated `spd` schema so it can coexist with the other
+-- apps already in this Supabase project (which own `public` + `students`).
+create schema if not exists spd;
+grant usage on schema spd to anon, authenticated, service_role;
+
+-- uuid_generate_v4() lives in the extensions schema
+create extension if not exists "uuid-ossp" with schema extensions;
+
+set search_path = spd, public, extensions;
 
 -- Organizations
-create table organizations (
-  id         uuid primary key default uuid_generate_v4(),
+create table spd.organizations (
+  id         uuid primary key default extensions.uuid_generate_v4(),
   name       text not null,
   created_at timestamptz default now()
 );
 
 -- Departments
-create table departments (
-  id         uuid primary key default uuid_generate_v4(),
-  org_id     uuid references organizations(id) on delete cascade,
+create table spd.departments (
+  id         uuid primary key default extensions.uuid_generate_v4(),
+  org_id     uuid references spd.organizations(id) on delete cascade,
   name       text not null,
   code       text not null,
   created_at timestamptz default now()
 );
 
 -- Profiles (extends Supabase auth.users)
-create table profiles (
+create table spd.profiles (
   id            uuid primary key references auth.users(id) on delete cascade,
-  org_id        uuid references organizations(id),
-  department_id uuid references departments(id),
+  org_id        uuid references spd.organizations(id),
+  department_id uuid references spd.departments(id),
   name          text,
   role          text not null default 'supervisor'
                   check (role in ('supervisor','manager','director','qa')),
@@ -29,9 +36,9 @@ create table profiles (
 );
 
 -- Checklists (templates)
-create table checklists (
-  id          uuid primary key default uuid_generate_v4(),
-  org_id      uuid references organizations(id) on delete cascade,
+create table spd.checklists (
+  id          uuid primary key default extensions.uuid_generate_v4(),
+  org_id      uuid references spd.organizations(id) on delete cascade,
   name        text not null,
   description text,
   category    text not null default 'custom',
@@ -39,15 +46,15 @@ create table checklists (
   status      text not null default 'active'
                 check (status in ('draft','active','archived')),
   is_built_in boolean default false,
-  created_by  uuid references profiles(id),
+  created_by  uuid references spd.profiles(id),
   created_at  timestamptz default now(),
   updated_at  timestamptz default now()
 );
 
 -- Checklist items
-create table checklist_items (
-  id            uuid primary key default uuid_generate_v4(),
-  checklist_id  uuid references checklists(id) on delete cascade,
+create table spd.checklist_items (
+  id            uuid primary key default extensions.uuid_generate_v4(),
+  checklist_id  uuid references spd.checklists(id) on delete cascade,
   question      text not null,
   rationale     text,
   response_type text not null default 'pass-fail',
@@ -59,12 +66,12 @@ create table checklist_items (
 );
 
 -- Audits
-create table audits (
-  id            uuid primary key default uuid_generate_v4(),
-  org_id        uuid references organizations(id) on delete cascade,
-  checklist_id  uuid references checklists(id),
-  department_id uuid references departments(id),
-  conducted_by  uuid references profiles(id),
+create table spd.audits (
+  id            uuid primary key default extensions.uuid_generate_v4(),
+  org_id        uuid references spd.organizations(id) on delete cascade,
+  checklist_id  uuid references spd.checklists(id),
+  department_id uuid references spd.departments(id),
+  conducted_by  uuid references spd.profiles(id),
   status        text not null default 'in-progress'
                   check (status in ('in-progress','completed')),
   mode          text not null default 'full',
@@ -74,20 +81,20 @@ create table audits (
 );
 
 -- Audit responses
-create table audit_responses (
-  id               uuid primary key default uuid_generate_v4(),
-  audit_id         uuid references audits(id) on delete cascade,
-  checklist_item_id uuid references checklist_items(id),
-  item_index       integer not null,
-  response         text not null check (response in ('yes','no','na')),
-  comment          text,
-  recorded_at      timestamptz default now()
+create table spd.audit_responses (
+  id                uuid primary key default extensions.uuid_generate_v4(),
+  audit_id          uuid references spd.audits(id) on delete cascade,
+  checklist_item_id uuid references spd.checklist_items(id),
+  item_index        integer not null,
+  response          text not null check (response in ('yes','no','na')),
+  comment           text,
+  recorded_at       timestamptz default now()
 );
 
 -- Findings
-create table findings (
-  id                uuid primary key default uuid_generate_v4(),
-  audit_id          uuid references audits(id) on delete cascade,
+create table spd.findings (
+  id                uuid primary key default extensions.uuid_generate_v4(),
+  audit_id          uuid references spd.audits(id) on delete cascade,
   item_index        integer not null,
   section_name      text,
   question          text not null,
@@ -101,10 +108,10 @@ create table findings (
 );
 
 -- Imported datasets
-create table imported_datasets (
-  id              uuid primary key default uuid_generate_v4(),
-  org_id          uuid references organizations(id) on delete cascade,
-  uploaded_by     uuid references profiles(id),
+create table spd.imported_datasets (
+  id              uuid primary key default extensions.uuid_generate_v4(),
+  org_id          uuid references spd.organizations(id) on delete cascade,
+  uploaded_by     uuid references spd.profiles(id),
   filename        text not null,
   source_type     text not null default 'csv',
   row_count       integer,
@@ -114,10 +121,10 @@ create table imported_datasets (
 );
 
 -- Reports
-create table reports (
-  id               uuid primary key default uuid_generate_v4(),
-  org_id           uuid references organizations(id) on delete cascade,
-  generated_by     uuid references profiles(id),
+create table spd.reports (
+  id               uuid primary key default extensions.uuid_generate_v4(),
+  org_id           uuid references spd.organizations(id) on delete cascade,
+  generated_by     uuid references spd.profiles(id),
   report_type      text not null,
   scope            text not null default 'user',
   date_range_start timestamptz,
@@ -125,3 +132,9 @@ create table reports (
   file_url         text,
   generated_at     timestamptz default now()
 );
+
+-- PostgREST roles need table privileges (RLS still gates the rows)
+grant all on all tables    in schema spd to authenticated, service_role;
+grant all on all sequences in schema spd to authenticated, service_role;
+alter default privileges in schema spd grant all on tables    to authenticated, service_role;
+alter default privileges in schema spd grant all on sequences to authenticated, service_role;

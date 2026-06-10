@@ -6,7 +6,7 @@ import PageShell from '@/components/layout/PageShell'
 import { Button, Badge, Card } from '@/components/ui'
 import { tokens } from '@/lib/constants/design-tokens'
 import { BUILT_IN_TEMPLATES } from '@/lib/data/templates'
-import { getAllCustomChecklists, cloneChecklist, saveCustomChecklist } from '@/lib/storage/checklist-storage'
+import { getAllCustomChecklists, cloneChecklist, saveCustomChecklist } from '@/lib/db/checklists'
 import type { ChecklistTemplate, ChecklistItemDef } from '@/lib/types/checklist'
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
@@ -114,16 +114,19 @@ export default function ChecklistViewPage() {
   useEffect(() => {
     const builtin = BUILT_IN_TEMPLATES.find(t => t.id === id)
     if (builtin) { setTemplate(builtin); return }
-    const custom = getAllCustomChecklists().find(t => t.id === id)
-    if (custom) { setTemplate(custom); return }
-    setNotFound(true)
+    getAllCustomChecklists()
+      .then(all => {
+        const custom = all.find(t => t.id === id)
+        if (custom) setTemplate(custom)
+        else setNotFound(true)
+      })
+      .catch(() => setNotFound(true))
   }, [id])
 
   function handleClone() {
     if (!template) return
     const cloned = cloneChecklist(template, `${template.name} (Copy)`)
-    saveCustomChecklist(cloned)
-    router.push('/checklists')
+    saveCustomChecklist(cloned).then(() => router.push('/checklists')).catch(() => {})
   }
 
   // ── Not found ──────────────────────────────────────────────────────────────

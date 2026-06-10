@@ -18,7 +18,7 @@ import {
   type SectionHeat,
   type AuditorStat,
 } from '@/lib/analytics/aggregator'
-import type { StoredAudit } from '@/lib/storage/audit-storage'
+import type { StoredAudit } from '@/lib/db/types'
 
 // ─── DATE RANGE FILTER ────────────────────────────────────────────────────────
 
@@ -96,7 +96,7 @@ export default function AnalyticsPage() {
   const [audits, setAudits] = useState<StoredAudit[]>([])
   const [range, setRange]  = useState<Range>(90)
 
-  useEffect(() => { setAudits(loadAllAudits()) }, [])
+  useEffect(() => { loadAllAudits().then(setAudits).catch(() => {}) }, [])
 
   const trendData   = useMemo(() => buildTrendData(audits, range || undefined), [audits, range])
   const failItems   = useMemo(() => buildTopFailItems(audits),                  [audits])

@@ -1,34 +1,11 @@
 // ─── TYPES ────────────────────────────────────────────────────────────────────
+// Canonical shapes now live in lib/db/types. Re-exported here for back-compat
+// with existing imports. NOTE: the localStorage functions below are DEPRECATED —
+// the app persists to Supabase via lib/db/audits. Kept only until all call sites
+// migrate; do not add new usages.
 
-import type { AuditScore } from '@/lib/scoring/engine'
-export type { AuditScore }
-
-export interface StoredFinding {
-  itemIndex:       number
-  sectionName:     string
-  question:        string
-  severity:        'critical' | 'major' | 'minor'
-  comment:         string
-  status:          'open' | 'in-progress' | 'resolved'
-  correctiveAction?: string
-  resolvedAt?:     string
-}
-
-export interface StoredAudit {
-  id:              string                     // crypto.randomUUID()
-  checklistName:   string
-  mode:            'full' | 'focus'
-  startedAt:       string                     // ISO timestamp
-  completedAt?:    string
-  status:          'in-progress' | 'completed'
-  responses:       Record<number, { answer: 'yes' | 'no' | 'na'; comment: string }>
-  sectionIndex?:   number                     // for focus audits
-  score?:          number                     // overall % compliance
-  auditScore?:     AuditScore                 // full weighted scoring result (Phase 06+)
-  findings:        StoredFinding[]
-  departmentId?:   string                     // Phase 07: org department scoping
-  conductedBy?:    string                     // Phase 07: user display name
-}
+export type { AuditScore, StoredFinding, StoredAudit } from '@/lib/db/types'
+import type { StoredAudit, StoredFinding } from '@/lib/db/types'
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 

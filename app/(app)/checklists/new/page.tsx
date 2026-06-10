@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import PageShell from '@/components/layout/PageShell'
 import { Button, Input } from '@/components/ui'
 import { tokens } from '@/lib/constants/design-tokens'
-import { saveCustomChecklist } from '@/lib/storage/checklist-storage'
+import { saveCustomChecklist } from '@/lib/db/checklists'
 import type {
   ChecklistTemplate,
   ChecklistItemDef,
@@ -96,7 +96,7 @@ export default function NewChecklistPage() {
   function buildTemplate(status: ChecklistStatus): ChecklistTemplate {
     const now = new Date().toISOString()
     return {
-      id:          `custom-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      id:          crypto.randomUUID(),
       name:        name.trim(),
       description: description.trim(),
       category,
@@ -112,8 +112,7 @@ export default function NewChecklistPage() {
   function handleSave(status: ChecklistStatus) {
     if (!validate()) return
     const template = buildTemplate(status)
-    saveCustomChecklist(template)
-    router.push('/checklists')
+    saveCustomChecklist(template).then(() => router.push('/checklists')).catch(() => {})
   }
 
   return (

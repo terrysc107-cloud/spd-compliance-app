@@ -48,6 +48,7 @@ const btn: React.CSSProperties = {
 
 export default function SignupPage() {
   const [name, setName]           = useState('')
+  const [orgName, setOrgName]     = useState('')
   const [email, setEmail]         = useState('')
   const [password, setPassword]   = useState('')
   const [confirm, setConfirm]     = useState('')
@@ -73,7 +74,7 @@ export default function SignupPage() {
     const { error: authError } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { name } },
+      options: { data: { name, org_name: orgName } },
     })
     setLoading(false)
 
@@ -107,6 +108,7 @@ export default function SignupPage() {
       </h1>
       <p style={{ color: '#8899cc', fontSize: 13, marginBottom: 24 }}>
         SPD Compliance Platform
+        <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.08em', color: '#a5b4fc', background: 'rgba(99,102,241,0.18)', border: '1px solid rgba(99,102,241,0.35)', borderRadius: 999, padding: '2px 6px', marginLeft: 8 }}>BETA</span>
       </p>
 
       <form onSubmit={handleSubmit}>
@@ -120,6 +122,20 @@ export default function SignupPage() {
             required
             value={name}
             onChange={e => setName(e.target.value)}
+          />
+        </div>
+
+        <div style={{ marginBottom: 16 }}>
+          <label style={label} htmlFor="orgName">Facility / department name</label>
+          <input
+            id="orgName"
+            style={input}
+            type="text"
+            autoComplete="organization"
+            required
+            placeholder="e.g. Mercy ASC — Central Sterile"
+            value={orgName}
+            onChange={e => setOrgName(e.target.value)}
           />
         </div>
 

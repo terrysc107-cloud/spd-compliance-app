@@ -5,7 +5,7 @@ import PageShell from '@/components/layout/PageShell'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card } from '@/components/ui/Card'
-import { getThresholds, saveThresholds, DEFAULT_THRESHOLDS, ThresholdConfig } from '@/lib/storage/threshold-storage'
+import { getThresholds, saveThresholds, DEFAULT_THRESHOLDS, type ThresholdConfig } from '@/lib/db/thresholds'
 import { tokens } from '@/lib/constants/design-tokens'
 
 // ─── SCORE BAND PREVIEW ───────────────────────────────────────────────────────
@@ -37,9 +37,10 @@ export default function ThresholdsPage() {
   const [error,    setError]    = useState<string | null>(null)
 
   useEffect(() => {
-    const t = getThresholds()
-    setPass(t.passThreshold)
-    setMarginal(t.marginalThreshold)
+    getThresholds().then(t => {
+      setPass(t.passThreshold)
+      setMarginal(t.marginalThreshold)
+    }).catch(() => {})
   }, [])
 
   const validate = (): string | null => {
@@ -53,10 +54,11 @@ export default function ThresholdsPage() {
     const err = validate()
     if (err) { setError(err); return }
     setError(null)
-    const config: ThresholdConfig = { passThreshold: pass, marginalThreshold: marginal, updatedAt: new Date().toISOString() }
-    saveThresholds(config)
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2500)
+    const config: ThresholdConfig = { passThreshold: pass, marginalThreshold: marginal }
+    saveThresholds(config).then(() => {
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2500)
+    }).catch(() => setError('Could not save. Try again.'))
   }
 
   const handleReset = () => {

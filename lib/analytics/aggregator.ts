@@ -1,8 +1,9 @@
 // ─── ANALYTICS AGGREGATOR ─────────────────────────────────────────────────────
-// Prepares chart-ready data from StoredAudit localStorage records.
-// SSR-safe: getAllAudits() returns [] on server via its own guard.
+// Pure chart-data builders over StoredAudit[]. Data now comes from Supabase
+// (spd schema) via lib/db/audits.
 
-import { getAllAudits, type StoredAudit } from '@/lib/storage/audit-storage'
+import { getAllAudits } from '@/lib/db/audits'
+import type { StoredAudit } from '@/lib/db/types'
 
 // ─── TREND DATA ───────────────────────────────────────────────────────────────
 
@@ -142,6 +143,6 @@ export function buildAuditorStats(audits: StoredAudit[]): AuditorStat[] {
 
 // ─── CONVENIENCE LOADER ───────────────────────────────────────────────────────
 
-export function loadAllAudits(): StoredAudit[] {
+export function loadAllAudits(): Promise<StoredAudit[]> {
   return getAllAudits()
 }

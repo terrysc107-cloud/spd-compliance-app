@@ -3,7 +3,8 @@
 import React, { useEffect, useState } from 'react'
 import { Button } from '@/components/ui'
 import { tokens } from '@/lib/constants/design-tokens'
-import { getAllAudits, type StoredAudit } from '@/lib/storage/audit-storage'
+import { getAllAudits } from '@/lib/db/audits'
+import type { StoredAudit } from '@/lib/db/types'
 import { buildReportData, type ReportData } from '@/lib/reports/generator'
 import { saveReport, getAllReports, deleteReport, type SavedReport } from '@/lib/storage/report-storage'
 
@@ -41,7 +42,7 @@ export default function ReportsPage() {
   const [error, setError]           = useState('')
 
   useEffect(() => {
-    setAudits(getAllAudits())
+    getAllAudits().then(setAudits).catch(() => {})
     setHistory(getAllReports())
   }, [])
 

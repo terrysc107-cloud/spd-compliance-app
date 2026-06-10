@@ -3,16 +3,23 @@
 import { useEffect, useRef, useState } from 'react'
 import { tokens } from '@/lib/constants/design-tokens'
 import { loadAllAudits, buildTopFailItems, buildTrendData } from '@/lib/analytics/aggregator'
+import type { ReadinessResult } from '@/lib/readiness/engine'
+import type { StoredFinding } from '@/lib/db/types'
+
+const DAY = 24 * 60 * 60 * 1000
 
 // ─── PROPS ────────────────────────────────────────────────────────────────────
 
 interface AIInsightsPanelProps {
   checklistName?: string
+  /** When provided, the panel acts as the Readiness Advisor (Module 8). */
+  readiness?: ReadinessResult
+  openFindings?: StoredFinding[]
 }
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 
-function trendDirection(audits: ReturnType<typeof loadAllAudits>): 'improving' | 'declining' | 'stable' {
+function trendDirection(audits: Awaited<ReturnType<typeof loadAllAudits>>): 'improving' | 'declining' | 'stable' {
   const pts = buildTrendData(audits)
   if (pts.length < 6) return 'stable'
   const prev = pts.slice(-10, -5).reduce((s, p) => s + p.score, 0) / 5
@@ -62,11 +69,12 @@ function Skeleton() {
 
 // ─── COMPONENT ───────────────────────────────────────────────────────────────
 
-export function AIInsightsPanel({ checklistName }: AIInsightsPanelProps) {
+export function AIInsightsPanel({ checklistName, readiness, openFindings }: AIInsightsPanelProps) {
   const [text,    setText]    = useState('')
   const [loading, setLoading] = useState(false)
   const [error,   setError]   = useState<string | null>(null)
   const abortRef              = useRef<AbortController | null>(null)
+  const isAdvisor = !!readiness
 
   async function generate() {
     if (abortRef.current) abortRef.current.abort()
@@ -77,7 +85,43 @@ export function AIInsightsPanel({ checklistName }: AIInsightsPanelProps) {
     setError(null)
 
     try {
-      const all      = loadAllAudits()
+      // ── Readiness Advisor mode ──
+      if (readiness) {
+        if (!readiness.assessed) {
+          setText('Run your first audit to get a readiness briefing.')
+          setLoading(false)
+          return
+        }
+        const now = Date.now()
+        const readinessData = {
+          score: readiness.score,
+          band: readiness.band,
+          daysToSurvey: readiness.daysToSurvey,
+          factors: readiness.factors.map(f => ({ label: f.label, score: f.score, detail: f.detail })),
+          openCritical: readiness.openCritical,
+          openMajor: readiness.openMajor,
+          overdueCount: readiness.overdueCount,
+          topFindings: (openFindings ?? []).slice(0, 8).map(f => ({
+            question: f.question,
+            severity: f.severity,
+            status: f.status,
+            overdueDays: f.dueDate && f.status !== 'resolved'
+              ? Math.max(0, Math.floor((now - new Date(f.dueDate).getTime()) / DAY)) : 0,
+          })),
+        }
+        const res = await fetch('/api/generate-report', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ readinessData }), signal: abortRef.current.signal,
+        })
+        if (!res.ok) throw new Error(`API error ${res.status}`)
+        const json = await res.json() as { report?: string; error?: string }
+        if (json.error) throw new Error(json.error)
+        setText(json.report ?? '')
+        setLoading(false)
+        return
+      }
+
+      const all      = await loadAllAudits()
       const completed = all.filter(a => a.status === 'completed' && (!checklistName || a.checklistName === checklistName))
       const avgScore = completed.length > 0
         ? Math.round(completed.reduce((s, a) => s + (a.score ?? 0), 0) / completed.length)
@@ -107,7 +151,7 @@ export function AIInsightsPanel({ checklistName }: AIInsightsPanelProps) {
     }
   }
 
-  useEffect(() => { generate() }, [checklistName])  // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { generate() }, [checklistName, readiness?.score, readiness?.assessed])  // eslint-disable-line react-hooks/exhaustive-deps
 
   const card: React.CSSProperties = {
     background:   tokens.color.surface,
@@ -125,7 +169,7 @@ export function AIInsightsPanel({ checklistName }: AIInsightsPanelProps) {
               <path d="M12 2a10 10 0 1 0 10 10" /><path d="M12 6v6l4 2" />
             </svg>
           </div>
-          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: tokens.color.textPrimary }}>AI Quality Insights</h3>
+          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: tokens.color.textPrimary }}>{isAdvisor ? 'AI Readiness Advisor' : 'AI Quality Insights'}</h3>
         </div>
         <button
           onClick={generate}
