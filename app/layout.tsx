@@ -3,8 +3,8 @@ import './globals.css'
 import './print.css'
 
 export const metadata: Metadata = {
-  title: "SPD Intel — Sterile Processing Compliance Audits",
-  description: "AI-powered compliance audits and gap analysis for Sterile Processing Departments. Aligned with AAMI, AORN, and CMS standards.",
+  title: "SPD Intel — Survey Readiness OS for Sterile Processing",
+  description: "Turn your sterile processing audits into a live survey readiness score. Track gaps and corrective actions, and walk into Joint Commission, DNV, and CMS surveys knowing exactly where you stand. Aligned with AAMI ST79, ST91, and ST108.",
 };
 
 export const viewport: Viewport = {
