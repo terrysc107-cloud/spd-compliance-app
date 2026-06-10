@@ -5,6 +5,7 @@
 // receive 401 before any AI call is made.
 
 import { generateText } from 'ai'
+import { anthropic } from '@ai-sdk/anthropic'
 import type { ReportData } from '@/lib/reports/generator'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 
@@ -124,8 +125,9 @@ export async function POST(req: Request) {
         ? buildStructuredPrompt(reportData)
         : buildLegacyPrompt(checklistData!)
 
+    // Direct Anthropic provider — authenticates via ANTHROPIC_API_KEY.
     const result = await generateText({
-      model: 'anthropic/claude-opus-4-8',
+      model: anthropic('claude-opus-4-8'),
       prompt,
       maxOutputTokens: 2500,
     })
