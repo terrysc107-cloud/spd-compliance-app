@@ -41,3 +41,13 @@ Record consciously deferred work, tradeoffs, and cleanup items here.
 - .env.example updated to document all required env vars with safety annotations.
 - RLS covers all 11 Supabase tables (organizations, departments, profiles, checklists, checklist_items,
   audits, audit_responses, findings, imported_datasets, reports).
+
+---
+
+## Consulting Workspace (2026-10-22)
+
+1. **Migration 007 not yet applied** to the live Supabase project. Validated locally against Postgres (PGlite) with Supabase auth/storage stubs, including cross-org RLS tests. Apply with `supabase db push` or the SQL editor.
+2. **No offline mode.** Walkthrough saves each tap to Supabase; basements with no signal will surface errors. Next step: queue writes in IndexedDB and sync.
+3. **HEIC/WebP photos** upload and display in-app but are skipped in the PDF (react-pdf renders JPEG/PNG only). iOS "Most Compatible" camera setting avoids this; server-side conversion would fix it properly.
+4. **Single-consultant firms assumed.** Library and clients are shared org-wide; there is no per-consultant assignment or reviewer sign-off workflow yet.
+5. **App sidebar is fixed-width (240px)** — pre-existing; on phones the workspace is cramped. The walkthrough itself collapses its area list into a dropdown below 900px.

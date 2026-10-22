@@ -21,6 +21,14 @@ const NAV_ITEMS = [
   { label: 'Reports', href: '/reports', icon: icon(<><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /></>) },
 ]
 
+// Consultant workspace (external engagements at client facilities).
+const CONSULT_ITEMS = [
+  { label: 'Engagements', href: '/consult' },
+  { label: 'Clients', href: '/consult/clients' },
+  { label: 'Knowledge Library', href: '/consult/library' },
+  { label: 'Consultant Profile', href: '/consult/settings' },
+]
+
 // Secondary "Tools" group (staffing calculator + scheduler live under settings).
 const TOOLS_ITEMS = [
   { label: 'Staffing', href: '/settings/staffing' },
@@ -78,6 +86,21 @@ export default function Sidebar() {
           return (
             <Link key={item.href} href={item.href} style={linkStyle(active)}>
               <span style={{ flexShrink: 0, opacity: active ? 1 : 0.7 }}>{item.icon}</span>
+              {item.label}
+            </Link>
+          )
+        })}
+
+        <div style={{ margin: '14px 12px 6px', fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#475569' }}>
+          Consulting
+        </div>
+        {CONSULT_ITEMS.map(item => {
+          // '/consult' also owns /consult/engagements/*.
+          const active = item.href === '/consult'
+            ? pathname === '/consult' || pathname.startsWith('/consult/engagements')
+            : pathname === item.href || pathname.startsWith(item.href + '/')
+          return (
+            <Link key={item.href} href={item.href} style={{ ...linkStyle(active), fontSize: '13px', padding: '7px 12px' }}>
               {item.label}
             </Link>
           )
