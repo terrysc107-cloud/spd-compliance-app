@@ -1,5 +1,7 @@
 import { createClient } from '@/lib/supabase/client'
 import { getMyProfile } from '@/lib/db/org'
+import { consultIdentity } from '@/lib/consult/identity'
+import { perform } from '@/lib/consult/offline/queue'
 import type {
   AreaId, Answer, DepartmentProfile, Engagement, EngagementStatus, EngagementType, ResponseMap,
 } from '@/lib/consult/types'
@@ -132,18 +134,13 @@ export async function getResponsesFor(engagementIds: string[]): Promise<Record<s
 }
 
 export async function setResponse(engagementId: string, itemId: string, answer: Answer, note: string): Promise<void> {
-  const profile = await getMyProfile()
-  if (!profile?.orgId) throw new Error('No profile/org — cannot save response')
-  const supabase = createClient()
-  const { error } = await supabase.from('consult_responses').upsert({
-    engagement_id: engagementId, item_id: itemId, org_id: profile.orgId,
+  const me = await consultIdentity()
+  await perform({ kind: 'response.set', row: {
+    engagement_id: engagementId, item_id: itemId, org_id: me.orgId,
     answer, note: note || null, updated_at: new Date().toISOString(),
-  })
-  if (error) throw new Error(error.message)
+  } })
 }
 
 export async function clearResponse(engagementId: string, itemId: string): Promise<void> {
-  const supabase = createClient()
-  const { error } = await supabase.from('consult_responses').delete().match({ engagement_id: engagementId, item_id: itemId })
-  if (error) throw new Error(error.message)
+  await perform({ kind: 'response.clear', engagementId, itemId })
 }

@@ -8,6 +8,7 @@ import { RATING_COLOR, RATING_LABEL, RATING_ORDER, areaName } from '@/lib/consul
 import { scoreColor, type EngagementScore } from '@/lib/consult/scoring'
 import { getConsultSettings } from '@/lib/consult/db/library'
 import { actionPlanCsv } from '@/lib/consult/builders'
+import { flush } from '@/lib/consult/offline/queue'
 import { TextArea, errMsg } from './fields'
 import type { ConsultSettings, Engagement, Observation } from '@/lib/consult/types'
 
@@ -39,6 +40,7 @@ export default function ReportTab({ engagement, score, observations, openGaps, o
     if (narrative.trim() && !confirm('Replace the current narrative with a fresh AI draft? Your edits will be lost.')) return
     setDrafting(true)
     try {
+      await flush()   // the server drafts from the DB: push any offline edits first
       const res = await fetch('/api/consult/draft', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ engagementId: engagement.id }),
@@ -61,6 +63,7 @@ export default function ReportTab({ engagement, score, observations, openGaps, o
     if (dirty) await onPatch({ executiveSummary: narrative })
     setPdfBusy(true)
     try {
+      await flush()
       const res = await fetch(`/api/consult/report-pdf?engagementId=${engagement.id}`)
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? `PDF failed (${res.status})`)
       const name = res.headers.get('Content-Disposition')?.match(/filename="([^"]+)"/)?.[1] ?? 'spd-assessment.pdf'

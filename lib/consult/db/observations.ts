@@ -1,9 +1,11 @@
 import { createClient } from '@/lib/supabase/client'
-import { getMyProfile } from '@/lib/db/org'
+import { consultIdentity } from '@/lib/consult/identity'
+import { CONSULT_BUCKET, perform } from '@/lib/consult/offline/queue'
+import { jpegName, normalizePhoto } from '@/lib/consult/photo'
 import type { AreaId, Observation, Photo, Priority, Rating } from '@/lib/consult/types'
 
-export const CONSULT_BUCKET = 'spd-consult'
-const MAX_PHOTO_BYTES = 10 * 1024 * 1024
+export { CONSULT_BUCKET }
+const MAX_PHOTO_BYTES = 40 * 1024 * 1024   // pre-normalization; output is ~200–500 KB
 
 type ObservationRow = {
   id: string; engagement_id: string; area: string; title: string; detail: string | null
@@ -79,69 +81,49 @@ function toRow(o: Partial<ObservationInput>): Record<string, unknown> {
 
 export async function createObservation(input: ObservationInput): Promise<Observation> {
   if (!input.title.trim()) throw new Error('Observation title is required')
-  const profile = await getMyProfile()
-  if (!profile?.orgId) throw new Error('No profile/org — cannot save observation')
-  const supabase = createClient()
-  const { data, error } = await supabase
-    .from('consult_observations')
-    .insert({ ...toRow(input), engagement_id: input.engagementId, org_id: profile.orgId, created_by: profile.id })
-    .select('*')
-    .single()
-  if (error) throw new Error(error.message)
-  return { ...mapObservation(data as ObservationRow), photos: [] }
+  const me = await consultIdentity()
+  // Client-made id: the row can be queued offline and replayed idempotently.
+  const id = crypto.randomUUID()
+  const createdAt = new Date().toISOString()
+  await perform({ kind: 'observation.upsert', row: {
+    ...toRow(input), id, engagement_id: input.engagementId, org_id: me.orgId,
+    created_by: me.userId, created_at: createdAt,
+  } })
+  return {
+    ...input, id, createdAt, photos: [],
+    title: input.title.trim(), standardRefs: input.standardRefs.map(r => r.trim()).filter(Boolean),
+  }
 }
 
 export async function updateObservation(id: string, updates: Partial<ObservationInput>): Promise<void> {
   if (updates.title !== undefined && !updates.title.trim()) throw new Error('Observation title is required')
-  const supabase = createClient()
-  const { error } = await supabase
-    .from('consult_observations')
-    .update({ ...toRow(updates), updated_at: new Date().toISOString() })
-    .eq('id', id)
-  if (error) throw new Error(error.message)
+  await perform({ kind: 'observation.update', id, patch: { ...toRow(updates), updated_at: new Date().toISOString() } })
 }
 
 export async function deleteObservation(obs: Observation): Promise<void> {
-  const supabase = createClient()
-  const paths = (obs.photos ?? []).map(p => p.filePath)
-  if (paths.length) await supabase.storage.from(CONSULT_BUCKET).remove(paths)
-  const { error } = await supabase.from('consult_observations').delete().eq('id', obs.id)
-  if (error) throw new Error(error.message)
+  await perform({ kind: 'observation.delete', id: obs.id, paths: (obs.photos ?? []).map(p => p.filePath) })
 }
 
 // ─── PHOTOS ─────────────────────────────────────────────────────────────────
 
+/** Normalizes to JPEG (see lib/consult/photo), then saves or queues. The
+ *  returned photo previews from a local object URL until the next load. */
 export async function uploadPhoto(obs: Observation, file: File, caption = ''): Promise<Photo> {
-  if (!file.type.startsWith('image/')) throw new Error('Only image files can be attached')
-  if (file.size > MAX_PHOTO_BYTES) throw new Error('Photo is larger than 10 MB')
-  const profile = await getMyProfile()
-  if (!profile?.orgId) throw new Error('No profile/org — cannot upload photo')
-
-  const safeName = file.name.replace(/[^\w.\-]+/g, '_').slice(-80) || 'photo.jpg'
-  const path = `${profile.orgId}/${obs.engagementId}/${obs.id}/${Date.now()}-${safeName}`
-  const supabase = createClient()
-  const { error: upErr } = await supabase.storage.from(CONSULT_BUCKET).upload(path, file, { contentType: file.type })
-  if (upErr) throw new Error(upErr.message)
-
-  const { data, error } = await supabase
-    .from('consult_photos')
-    .insert({
-      org_id: profile.orgId, observation_id: obs.id, file_path: path,
-      file_name: file.name, caption: caption || null, uploaded_by: profile.id,
-    })
-    .select('id, observation_id, file_path, file_name, caption')
-    .single()
-  if (error) {
-    await supabase.storage.from(CONSULT_BUCKET).remove([path])
-    throw new Error(error.message)
+  if (!file.type.startsWith('image/') && !/\.(heic|heif)$/i.test(file.name)) throw new Error('Only image files can be attached')
+  if (file.size > MAX_PHOTO_BYTES) throw new Error('Photo is too large')
+  const me = await consultIdentity()
+  const blob = await normalizePhoto(file)
+  const id = crypto.randomUUID()
+  const fileName = jpegName(file.name)
+  const path = `${me.orgId}/${obs.engagementId}/${obs.id}/${id}.jpg`
+  const row = {
+    id, org_id: me.orgId, observation_id: obs.id, file_path: path,
+    file_name: fileName, caption: caption || null, uploaded_by: me.userId,
   }
-  const { data: signed } = await supabase.storage.from(CONSULT_BUCKET).createSignedUrl(path, 3600)
-  return { ...mapPhoto(data as PhotoRow), url: signed?.signedUrl }
+  await perform({ kind: 'photo.upload', path, blob, contentType: 'image/jpeg', row })
+  return { id, observationId: obs.id, filePath: path, fileName, caption: caption || null, url: URL.createObjectURL(blob) }
 }
 
 export async function deletePhoto(photo: Photo): Promise<void> {
-  const supabase = createClient()
-  await supabase.storage.from(CONSULT_BUCKET).remove([photo.filePath])
-  const { error } = await supabase.from('consult_photos').delete().eq('id', photo.id)
-  if (error) throw new Error(error.message)
+  await perform({ kind: 'photo.delete', id: photo.id, path: photo.filePath })
 }

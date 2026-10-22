@@ -9,13 +9,13 @@ import { getEngagement, getResponses, updateEngagement } from '@/lib/consult/db/
 import { listObservations } from '@/lib/consult/db/observations'
 import { ENGAGEMENT_TYPE_LABEL, STATUS_LABEL, scopedAreas } from '@/lib/consult/framework'
 import { BAND_COLOR, BAND_LABEL, scoreColor, scoreEngagement } from '@/lib/consult/scoring'
-import { STATUS_COLOR } from '@/components/consult/EngagementList'
 import { unconvertedGaps } from '@/lib/consult/builders'
 import { ErrorNote, Select, errMsg, fmtDay } from '@/components/consult/fields'
 import OverviewTab from '@/components/consult/OverviewTab'
 import WalkthroughTab from '@/components/consult/WalkthroughTab'
 import ObservationsTab from '@/components/consult/ObservationsTab'
 import ReportTab from '@/components/consult/ReportTab'
+import SyncBadge from '@/components/consult/SyncBadge'
 import type { Engagement, EngagementStatus, Observation, ResponseMap } from '@/lib/consult/types'
 
 type Tab = 'overview' | 'walkthrough' | 'observations' | 'report'
@@ -96,7 +96,7 @@ export default function EngagementPage({ params }: { params: Promise<{ id: strin
             <div style={{ height: 6, borderRadius: 3, width: `${score.total ? (score.answered / score.total) * 100 : 0}%`, background: tokens.color.accentBlue, transition: 'width 0.3s' }} />
           </div>
         </div>
-        <span style={{ fontSize: 11, fontWeight: 700, color: STATUS_COLOR[engagement.status] }}>{STATUS_LABEL[engagement.status].toUpperCase()}</span>
+        <SyncBadge />
       </div>
 
       {/* Tabs */}
