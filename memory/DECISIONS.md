@@ -272,3 +272,22 @@ Phase 01 is complete when ALL of the following are true. No exceptions.
 ---
 
 _When all boxes above are checked: Product Architect signs off, Phase 01 closes, Phase 02 begins._
+
+---
+
+## Consulting Workspace (2026-10-22)
+
+_Brief correction: "SPD" in this product is the hospital **Sterile Processing Department**, not public safety. The Product Brief above predates that clarification; README and all shipped content are SPD = sterile processing._
+
+### What
+A second workspace inside the same app (`/consult/*`) for **independent SPD consultants** who assess *other* facilities' departments. Flow: Client → Engagement (site visit) → Walkthrough (82 standards checkpoints, 13 areas) → Observations (findings + strengths, photos) → AI-drafted narrative the consultant edits → client-ready PDF + CSV action plan.
+
+### Decisions
+- **Same app, not a fork.** Reuses auth, the `spd` schema, org-scoped RLS, react-pdf, and the dark design tokens. The consulting firm is the existing `organizations` row; clients are a new `consult_clients` table (migration 007).
+- **Framework in code, not DB** (`lib/consult/framework/`). Citations are document-level (e.g. "ANSI/AAMI ST79"), never clause numbers — editions move and the AI is told not to invent clause numbers. Consultants override refs per observation.
+- **Scoring** (`lib/consult/scoring.ts`): risk-weighted (critical 3 / major 2 / minor 1), partial = half credit, N/A excluded. Overall is item-weighted, not a mean of areas. Any critical gap caps the band at "High Risk"; 3+ critical issues = "Severe" regardless of score.
+- **Walkthrough gaps do not auto-create findings.** The consultant clicks "+ Add as finding" (or bulk-converts on the Observations tab). Auto-creation produced noise when toggling answers on site.
+- **"Personal knowledge" = Knowledge Library + voice notes.** Library entries (starter set in code + the consultant's own in `consult_library`) insert into any engagement in one tap, and the most-used entries in the engagement's problem areas are passed to the AI drafter as style/knowledge examples alongside the consultant's voice notes.
+- **AI narrative vs. structured appendices.** The draft covers Executive Summary → Recommendations & Next Steps in prose only; the PDF appends the scorecard, every observation (with up to 2 photos each), and the itemized 30/60/90 action plan from data, so the narrative never contradicts the record.
+- **AI provider:** official `@anthropic-ai/sdk`, model `claude-opus-5-5`, effort `high`, streaming `finalMessage()`, server-side refusal fallback enabled (`fallbacks: "default"`). Requires `ANTHROPIC_API_KEY` (server-only).
+- Child-row RLS policies also require the parent row to be visible, so a known foreign UUID can't be attached to.

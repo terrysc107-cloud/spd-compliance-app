@@ -43,6 +43,7 @@ export async function updateSession(request: NextRequest) {
     request.nextUrl.pathname.startsWith('/reports') ||
     request.nextUrl.pathname.startsWith('/settings') ||
     request.nextUrl.pathname.startsWith('/admin') ||
+    request.nextUrl.pathname.startsWith('/consult') ||
     request.nextUrl.pathname.startsWith('/onboarding')
 
   if (!user && isProtectedRoute) {

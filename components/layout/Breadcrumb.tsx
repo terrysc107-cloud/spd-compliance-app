@@ -16,9 +16,21 @@ const LABEL_MAP: Record<string, string> = {
   run: 'Run',
   results: 'Results',
   users: 'Users',
+  consult: 'Consulting',
+  clients: 'Clients',
+  engagements: 'Engagements',
+  library: 'Library',
 }
 
+// Intermediate segments with no index page of their own.
+const HREF_OVERRIDE: Record<string, string> = {
+  '/consult/engagements': '/consult',
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 function toLabel(segment: string): string {
+  if (UUID.test(segment)) return 'Details'
   return LABEL_MAP[segment.toLowerCase()] ?? segment.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
@@ -30,14 +42,14 @@ export default function Breadcrumb() {
 
   const crumbs = segments.map((seg, i) => ({
     label: toLabel(seg),
-    href: '/' + segments.slice(0, i + 1).join('/'),
+    href: HREF_OVERRIDE['/' + segments.slice(0, i + 1).join('/')] ?? '/' + segments.slice(0, i + 1).join('/'),
     isLast: i === segments.length - 1,
   }))
 
   return (
     <nav aria-label="Breadcrumb" style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
       {crumbs.map((crumb, i) => (
-        <span key={crumb.href} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <span key={i} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           {i > 0 && (
             <span style={{ color: '#64748b', fontSize: '13px', userSelect: 'none' }}>›</span>
           )}
