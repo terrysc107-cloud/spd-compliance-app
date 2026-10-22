@@ -206,6 +206,54 @@ function Findings({ b }: { b: ReportBundle }) {
   )
 }
 
+function AuditResults({ b }: { b: ReportBundle }) {
+  if (!b.audits.length) return null
+  const pct = (v: number | null) => (v === null ? '—' : `${v}%`)
+  return (
+    <View break>
+      <Text style={s.h1}>Appendix D — Instant Audit Results</Text>
+      <Text style={[s.muted, { marginBottom: 8 }]}>
+        Audits started during the engagement to measure corrective actions. Baseline is the first stretch of logging; current is the latest.
+        Compliance = Yes ÷ (Yes + No).
+      </Text>
+      <View style={s.thRow}>
+        {['Audit', 'Samples', 'Baseline', 'Current', 'Change', 'Critical misses'].map((h, i) => (
+          <Text key={i} style={[s.th, { width: i === 0 ? 200 : 62 }]}>{h}</Text>
+        ))}
+      </View>
+      {b.audits.map(({ audit: a, summary: m, linkedTitle }) => (
+        <View key={a.id} style={s.tr} wrap={false}>
+          <View style={{ width: 200, paddingHorizontal: 4 }}>
+            <Text style={{ fontSize: 9, fontFamily: 'Helvetica-Bold' }}>{a.title}</Text>
+            {linkedTitle ? <Text style={{ fontSize: 7.5, color: '#64748b' }}>Measures: {linkedTitle}</Text> : null}
+          </View>
+          <Text style={[s.td, { width: 62 }]}>{m.samples} / {m.days}d</Text>
+          <Text style={[s.td, { width: 62, color: scoreColor(m.baseline) }]}>{pct(m.baseline)}</Text>
+          <Text style={[s.td, { width: 62, color: scoreColor(m.current), fontFamily: 'Helvetica-Bold' }]}>{pct(m.current)}</Text>
+          <Text style={[s.td, { width: 62, color: m.delta === null ? '#64748b' : m.delta >= 0 ? '#16a34a' : '#dc2626' }]}>
+            {m.delta === null ? '—' : `${m.delta >= 0 ? '+' : ''}${m.delta} pts`}
+          </Text>
+          <Text style={[s.td, { width: 62, color: m.criticalMisses ? '#dc2626' : '#1e293b' }]}>{m.criticalMisses}</Text>
+        </View>
+      ))}
+      {b.audits.map(({ audit: a, summary: m }) => {
+        const worst = m.items.filter(i => i.no > 0).slice(0, 3)
+        if (!worst.length) return null
+        return (
+          <View key={`w-${a.id}`} style={{ marginTop: 10 }} wrap={false}>
+            <Text style={{ fontSize: 9.5, fontFamily: 'Helvetica-Bold', marginBottom: 3 }}>{a.title} — most-failed items</Text>
+            {worst.map(i => (
+              <Text key={i.id} style={{ fontSize: 8.5, color: '#334155', marginBottom: 1 }}>
+                • {i.text}{i.critical ? ' (critical)' : ''}: {i.failRate}% No ({i.no} of {i.answered})
+              </Text>
+            ))}
+          </View>
+        )
+      })}
+    </View>
+  )
+}
+
 function ActionPlan({ b }: { b: ReportBundle }) {
   const actions = b.observations.filter(o => o.rating !== 'strength')
   let n = 0
@@ -259,6 +307,7 @@ export function ConsultReport({ bundle: b }: { bundle: ReportBundle }): ReactEle
         </View>
         <Findings b={b} />
         <ActionPlan b={b} />
+        <AuditResults b={b} />
 
         <View break>
           <Text style={s.h1}>Methodology & Limitations</Text>

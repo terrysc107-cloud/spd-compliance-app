@@ -11,10 +11,11 @@ import ObservationEditor from './ObservationEditor'
 import { Pill, errMsg } from './fields'
 import type { Observation } from '@/lib/consult/types'
 
-export default function ObservationItem({ obs, onChange, onDelete, onError }: {
+export default function ObservationItem({ obs, onChange, onDelete, onStartAudit, onError }: {
   obs:      Observation
   onChange: (o: Observation) => void
   onDelete: (id: string) => void
+  onStartAudit?: (o: Observation) => void
   onError:  (msg: string) => void
 }) {
   const [editing, setEditing] = useState(false)
@@ -86,6 +87,9 @@ export default function ObservationItem({ obs, onChange, onDelete, onError }: {
         <Button size="sm" variant="secondary" onClick={() => setEditing(true)}>Edit</Button>
         <Button size="sm" variant="secondary" disabled={uploading} onClick={() => fileRef.current?.click()}>{uploading ? 'Uploading…' : '📷 Add photo'}</Button>
         <input ref={fileRef} type="file" accept="image/*" capture="environment" multiple hidden onChange={e => onFiles(e.target.files)} />
+        {onStartAudit && obs.rating !== 'strength' && (
+          <Button size="sm" variant="secondary" onClick={() => onStartAudit(obs)}>📋 Start audit</Button>
+        )}
         <Button size="sm" variant="ghost" disabled={savedToLib} onClick={saveToLibrary}>{savedToLib ? '✓ In library' : 'Save to my library'}</Button>
         <Button size="sm" variant="ghost" onClick={remove}>Delete</Button>
       </div>

@@ -139,3 +139,34 @@ export interface ConsultSettings {
   disclaimer:     string
   voiceNotes:     string
 }
+
+// ── Instant audits (migration 008) ──
+export type AuditAnswer = 'yes' | 'no' | 'na'
+
+export interface AuditItem { id: string; text: string; critical?: boolean }
+
+export interface Audit {
+  id:            string
+  engagementId:  string
+  observationId: string | null
+  templateId:    string
+  title:         string
+  items:         AuditItem[]      // frozen copy of the template items
+  sampleUnit:    string
+  targetPerDay:  number
+  status:        'active' | 'closed'
+  startedOn:     string
+  createdAt:     string
+}
+
+export interface AuditSample {
+  id:         string
+  auditId:    string
+  sampledOn:  string               // YYYY-MM-DD the audit was performed
+  sampleRef:  string
+  source:     'observed' | 'paper'
+  auditor:    string
+  answers:    Record<string, AuditAnswer>
+  note:       string
+  createdAt:  string
+}

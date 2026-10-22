@@ -7,9 +7,11 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { scopedAreas } from '@/lib/consult/framework'
 import { scoreEngagement, type EngagementScore } from '@/lib/consult/scoring'
 import type {
-  Answer, Client, ConsultSettings, Engagement, LibraryEntry, Observation, ResponseMap,
+  Answer, Audit, Client, ConsultSettings, Engagement, LibraryEntry, Observation, ResponseMap,
 } from '@/lib/consult/types'
 import { mapEngagement } from '@/lib/consult/db/engagements'
+import { mapAudit, mapSample } from '@/lib/consult/db/audits'
+import { summarize, type AuditSummary } from '@/lib/consult/audits/scoring'
 
 // The app's clients are pinned to the `spd` schema (lib/supabase/*).
 type SpdClient = SupabaseClient<any, 'spd', 'spd'>
@@ -26,7 +28,10 @@ export interface ReportBundle {
   library:      LibraryEntry[]
   photos:       ReportPhoto[]
   priorScore:   { title: string; date: string | null; overall: number | null } | null
+  audits:       ReportAudit[]
 }
+
+export interface ReportAudit { audit: Audit; summary: AuditSummary; linkedTitle: string | null }
 
 const MAX_PHOTOS_PER_OBS = 2
 const MAX_PHOTOS_TOTAL   = 24
@@ -82,9 +87,10 @@ export async function loadReportBundle(
 
   const score = scoreEngagement(scopedAreas(engagement.scopeAreas), responses, observations)
   const priorScore = await loadPriorScore(supabase, engagement)
+  const audits = await loadAudits(supabase, engagementId, observations)
   const photos = opts.withPhotos ? await loadPhotos(supabase, observations) : []
 
-  return { engagement, client, responses, observations, score, settings, library, photos, priorScore }
+  return { engagement, client, responses, observations, score, settings, library, photos, priorScore, audits }
 }
 
 /** The client's most recent earlier engagement, scored the same way — the
@@ -134,4 +140,18 @@ async function loadPhotos(supabase: SpdClient, observations: Observation[]): Pro
     out.push({ observationId: r.observation_id, caption: r.caption, dataUri: `data:${type};base64,${b64}` })
   }
   return out
+}
+
+async function loadAudits(supabase: SpdClient, engagementId: string, observations: Observation[]): Promise<ReportAudit[]> {
+  const { data: aRows } = await supabase.from('consult_audits').select('*').eq('engagement_id', engagementId).order('created_at')
+  const audits = (aRows ?? []).map(mapAudit)
+  if (!audits.length) return []
+  const { data: sRows } = await supabase.from('consult_audit_samples').select('*').in('audit_id', audits.map(a => a.id))
+  const samples = (sRows ?? []).map(mapSample)
+  const titles = new Map(observations.map(o => [o.id, o.title]))
+  return audits.map(a => ({
+    audit: a,
+    summary: summarize(a, samples.filter(s => s.auditId === a.id)),
+    linkedTitle: a.observationId ? titles.get(a.observationId) ?? null : null,
+  }))
 }

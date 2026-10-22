@@ -291,3 +291,11 @@ A second workspace inside the same app (`/consult/*`) for **independent SPD cons
 - **AI narrative vs. structured appendices.** The draft covers Executive Summary → Recommendations & Next Steps in prose only; the PDF appends the scorecard, every observation (with up to 2 photos each), and the itemized 30/60/90 action plan from data, so the narrative never contradicts the record.
 - **AI provider:** official `@anthropic-ai/sdk`, model `claude-opus-5-5`, effort `high`, streaming `finalMessage()`, server-side refusal fallback enabled (`fallbacks: "default"`). Requires `ANTHROPIC_API_KEY` (server-only).
 - Child-row RLS policies also require the parent row to be visible, so a known foreign UUID can't be attached to.
+
+## Instant Audits (2026-10-22)
+
+- **Loop: Finding → Audit → Trend → Proof.** Any finding has "Start audit", which suggests relevant templates and links the audit back to the finding. The report's Appendix D shows baseline vs. current per audit, and the AI draft cites those numbers.
+- **No client logins (owner decision).** The data stays proprietary. Client staff fill in printed paper forms (`/api/consult/audit-form`); the consultant keys them in as "Paper form" with the date the audit was actually performed. Clients receive the PDF report and CSV exports.
+- **11 templates in code** (`lib/consult/audits/templates.ts`). Each audit row stores a frozen copy of its items, so later template edits never rewrite history.
+- **Scoring:** compliance = Yes ÷ (Yes + No), with N/A excluded. Baseline vs. current is the first 7 vs. the last 7 days once 14+ days are logged; before that it's the first half of logged days vs. the second half.
+- **Field writes:** all audit writes go through the offline queue, using client-generated ids.
