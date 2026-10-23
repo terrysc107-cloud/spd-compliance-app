@@ -11,6 +11,7 @@ type ObservationRow = {
   id: string; engagement_id: string; area: string; title: string; detail: string | null
   rating: string; standard_refs: string[] | null; recommendation: string | null
   priority: string; owner_role: string | null; item_id: string | null; source: string
+  needs_review?: boolean | null
   created_at: string
 }
 
@@ -24,7 +25,7 @@ function mapObservation(r: ObservationRow): Observation {
     detail: r.detail ?? '', rating: r.rating as Rating, standardRefs: r.standard_refs ?? [],
     recommendation: r.recommendation ?? '', priority: r.priority as Priority,
     ownerRole: r.owner_role ?? '', itemId: r.item_id,
-    source: r.source as Observation['source'], createdAt: r.created_at,
+    source: r.source as Observation['source'], needsReview: !!r.needs_review, createdAt: r.created_at,
   }
 }
 
@@ -76,6 +77,7 @@ function toRow(o: Partial<ObservationInput>): Record<string, unknown> {
   if (o.ownerRole !== undefined)      row.owner_role = o.ownerRole || null
   if (o.itemId !== undefined)         row.item_id = o.itemId
   if (o.source !== undefined)         row.source = o.source
+  if (o.needsReview !== undefined)    row.needs_review = o.needsReview
   return row
 }
 
