@@ -5,6 +5,7 @@
 
 import { ALL_AREA_IDS, FRAMEWORK, PRIORITY_ORDER, RATING_ORDER, scopedAreas } from '@/lib/consult/framework'
 import { AUDIT_TEMPLATES } from '@/lib/consult/audits/templates'
+import { EDITABLE_INPUTS } from '@/lib/twin'
 import type { AreaId } from '@/lib/consult/types'
 
 type Schema = Record<string, unknown>
@@ -105,10 +106,26 @@ export const VOICE_TOOLS: VoiceTool[] = [
         ? { type: 'number', description: f } : { type: 'string', description: f }]))),
   },
   {
+    type: 'function', name: 'set_twin_inputs',
+    description: 'Change SPD Twin flow-model inputs for the current-state or ideal-state scenario (input paths are in your instructions). Use for staffing per shift, equipment counts, volume, and work times. "both" applies to both scenarios.',
+    parameters: obj({
+      scenario: str('Which scenario', { enum: ['current', 'ideal', 'both'] }),
+      changes: {
+        type: 'array', description: 'Input changes',
+        items: obj({ path: str('Twin input path, e.g. "staff.prep.eve" or "washers"'), to: { type: ['number', 'string'], description: 'New value' } }, ['path', 'to']),
+      },
+    }, ['scenario', 'changes']),
+  },
+  {
+    type: 'function', name: 'get_twin_results',
+    description: 'Run SPD Twin for current and ideal and read back the outcomes (first-case readiness, rush trays on time, backlog at 7am, bottleneck) and the cheapest moves.',
+    parameters: obj({}),
+  },
+  {
     type: 'function', name: 'go_to',
     description: 'Switch the screen to a tab, and optionally to a walkthrough area.',
     parameters: obj({
-      tab: str('Tab', { enum: ['overview', 'walkthrough', 'observations', 'audits', 'report'] }),
+      tab: str('Tab', { enum: ['overview', 'walkthrough', 'observations', 'audits', 'twin', 'report'] }),
       area: str('Walkthrough area id (optional)', { enum: ALL_AREA_IDS }),
     }, ['tab']),
   },
@@ -167,5 +184,8 @@ Walkthrough checkpoints in scope (id: text):
 ${checkpoints}
 
 Audit templates (id: name):
-${audits}`
+${audits}
+
+SPD Twin input paths (path | label | range). Staffing is per shift: staff.decon.day|mid|eve|night and staff.prep.day|mid|eve|night (techs on that shift).
+${EDITABLE_INPUTS.map(e => `  ${e.path} | ${e.label}${e.kind === 'number' ? ` | ${e.min}-${e.max}${e.unit ? ' ' + e.unit : ''}` : e.kind === 'time' ? ' | HH:00' : ''}`).join('\n')}`
 }
