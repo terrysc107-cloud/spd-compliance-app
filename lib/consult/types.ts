@@ -103,7 +103,8 @@ export interface Observation {
   priority:       Priority
   ownerRole:      string
   itemId:         string | null
-  source:         'walkthrough' | 'field' | 'library'
+  source:         'walkthrough' | 'field' | 'library' | 'voice'
+  needsReview?:   boolean          // voice-captured and not yet reviewed
   createdAt:      string
   photos?:        Photo[]
 }

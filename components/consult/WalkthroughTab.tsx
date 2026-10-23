@@ -23,6 +23,8 @@ interface Props {
   observations:    Observation[]
   setObservations: React.Dispatch<React.SetStateAction<Observation[]>>
   onError:         (msg: string) => void
+  /** Jump to an area (set by the voice assistant); `n` changes on every request. */
+  focusArea?:      { area: AreaId; n: number } | null
 }
 
 /** Tablet portrait / phone: the area list collapses into a dropdown. */
@@ -43,6 +45,7 @@ export default function WalkthroughTab(p: Props) {
   const [areaId, setAreaId] = useState<AreaId>(() =>
     // Resume at the first area that still has unanswered checkpoints.
     (p.areas.find(a => a.items.some(i => !p.responses[i.id])) ?? p.areas[0])?.id)
+  useEffect(() => { if (p.focusArea) setAreaId(p.focusArea.area) }, [p.focusArea])
   const idx = p.areas.findIndex(a => a.id === areaId)
   const area = p.areas[idx] ?? p.areas[0]
   if (!area) return null
@@ -101,6 +104,8 @@ export default function WalkthroughTab(p: Props) {
 function ItemCard({ item, engagement, responses, setResponses, observations, setObservations, onError }: Props & { item: FrameworkItem }) {
   const r = responses[item.id]
   const [note, setNote] = useState(r?.note ?? '')
+  // Keep in sync when the note changes elsewhere (e.g. dictated by voice).
+  useEffect(() => { setNote(r?.note ?? '') }, [r?.note])
   const [showTip, setShowTip] = useState(false)
   const [busy, setBusy] = useState(false)
   const linked = observations.find(o => o.itemId === item.id)

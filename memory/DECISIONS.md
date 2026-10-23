@@ -299,3 +299,11 @@ A second workspace inside the same app (`/consult/*`) for **independent SPD cons
 - **11 templates in code** (`lib/consult/audits/templates.ts`). Each audit row stores a frozen copy of its items, so later template edits never rewrite history.
 - **Scoring:** compliance = Yes ÷ (Yes + No), with N/A excluded. Baseline vs. current is the first 7 vs. the last 7 days once 14+ days are logged; before that it's the first half of logged days vs. the second half.
 - **Field writes:** all audit writes go through the offline queue, using client-generated ids.
+
+## Voice Copilot (2026-10-23)
+
+- **Architecture.** The browser opens a WebRTC connection straight to OpenAI Realtime (`gpt-realtime-2.1`) using a 60-second client secret minted by `/api/consult/voice/session`. The instructions and tools are baked into that secret server-side, and `OPENAI_API_KEY` never reaches the device.
+- **The model can only act through 10 tools** (`lib/consult/voice/tools.ts`). They run in the browser through `VoiceExecutor`, which uses the same data layer and offline queue as taps. Every argument is validated as untrusted input, and every write pushes an undo onto a stack. `hermes-voice-gateway` was not reused as code: it is a single-user Twilio/Mac-mini service. Its patterns were reused instead: barge-in, and "speech is not authorization".
+- **Tap-to-talk is the default** (owner decision); decontamination is too loud for always-on VAD. In this mode server VAD is off, and the client commits the turn on release (`response.create` only after `input_audio_buffer.committed`, so an empty tap stays silent). Hands-free is a toggle that turns on server VAD at threshold 0.75. The session hangs up after 10 idle minutes.
+- **Review gate.** Voice-created or voice-edited observations get `source='voice'` and `needs_review=true` (migration 009). The flag clears when the observation is edited in the UI or marked "Reviewed". The report's "Before you deliver" list counts any still unreviewed.
+- **Privacy.** The model is told never to record patient identifiers, and the app stores no audio. Before real hospital use, enable OpenAI zero-data-retention or sign a BAA.

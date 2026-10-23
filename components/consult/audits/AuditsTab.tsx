@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Card, Button } from '@/components/ui'
 import { tokens } from '@/lib/constants/design-tokens'
-import { listAudits, startAudit } from '@/lib/consult/db/audits'
+import { startAudit } from '@/lib/consult/db/audits'
 import { summarize } from '@/lib/consult/audits/scoring'
 import { scoreColor } from '@/lib/consult/scoring'
 import AuditPicker from './AuditPicker'
@@ -11,24 +11,20 @@ import AuditDetail, { Delta } from './AuditDetail'
 import { Empty, Pill, errMsg } from '../fields'
 import type { Audit, AuditSample, Engagement, Observation } from '@/lib/consult/types'
 
-export default function AuditsTab({ engagement, observations, startFor, onStartHandled, onError }: {
+export default function AuditsTab({ engagement, observations, audits, setAudits, samples, setSamples, startFor, onStartHandled, onError }: {
   engagement:     Engagement
   observations:   Observation[]
+  audits:         Audit[] | null
+  setAudits:      React.Dispatch<React.SetStateAction<Audit[] | null>>
+  samples:        AuditSample[]
+  setSamples:     React.Dispatch<React.SetStateAction<AuditSample[]>>
   /** Set when "Start audit" was pressed on a finding; opens the picker for it. */
   startFor:       Observation | null
   onStartHandled: () => void
   onError:        (msg: string) => void
 }) {
-  const [audits, setAudits] = useState<Audit[] | null>(null)
-  const [samples, setSamples] = useState<AuditSample[]>([])
   const [openId, setOpenId] = useState<string | null>(null)
   const [picking, setPicking] = useState<{ obs: Observation | null } | null>(null)
-
-  useEffect(() => {
-    listAudits(engagement.id)
-      .then(r => { setAudits(r.audits); setSamples(r.samples) })
-      .catch(e => { onError(errMsg(e)); setAudits([]) })
-  }, [engagement.id, onError])
 
   useEffect(() => {
     if (startFor) { setPicking({ obs: startFor }); onStartHandled() }

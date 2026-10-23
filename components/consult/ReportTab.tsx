@@ -78,6 +78,8 @@ export default function ReportTab({ engagement, score, observations, openGaps, o
   const checks = [
     { ok: score.answered === score.total, text: `Walkthrough complete (${score.answered}/${score.total} checkpoints)` },
     { ok: openGaps === 0, text: openGaps > 0 ? `${openGaps} walkthrough gap(s) not yet written up as findings` : 'All walkthrough gaps written up' },
+    { ok: !observations.some(o => o.needsReview), text: observations.some(o => o.needsReview)
+      ? `${observations.filter(o => o.needsReview).length} voice-captured observation(s) not yet reviewed` : 'All voice-captured observations reviewed' },
     { ok: observations.some(o => o.rating === 'strength'), text: 'At least one strength recorded (clients notice when there are none)' },
     { ok: narrative.trim().length > 200, text: 'Narrative written and reviewed' },
     { ok: !!settings?.consultantName, text: 'Consultant name & credentials set for the cover page', href: '/consult/settings' },

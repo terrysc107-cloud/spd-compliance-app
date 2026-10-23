@@ -62,6 +62,9 @@ App runs at `http://localhost:3000`.
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Supabase anon/public key (from Project Settings > API) |
 | `AI_GATEWAY_URL` | Yes | Vercel AI gateway endpoint for Anthropic Claude access |
 | `ANTHROPIC_API_KEY` | Yes (AI features) | Server-only. Used by the report advisor and the consult report drafter |
+| `OPENAI_API_KEY` | Yes (voice) | Server-only. Mints 60-second OpenAI Realtime client secrets for the consult voice copilot |
+| `OPENAI_REALTIME_MODEL` | No | Defaults to `gpt-realtime-2.1` |
+| `OPENAI_REALTIME_VOICE` | No | Defaults to `marin` |
 
 All variables are consumed at runtime; none are baked into the static build. The `NEXT_PUBLIC_` prefix exposes the Supabase variables to the browser — they are safe to include because Supabase RLS policies enforce access control.
 
@@ -78,6 +81,8 @@ supabase/migrations/001_initial_schema.sql
 supabase/migrations/002_rls_policies.sql
 ...
 supabase/migrations/007_consult.sql   # consulting workspace + spd-consult photo bucket
+supabase/migrations/008_consult_audits.sql
+supabase/migrations/009_consult_voice.sql
 ```
 
 `001_initial_schema.sql` creates ten tables:
