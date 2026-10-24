@@ -172,3 +172,7 @@ create policy "spd_consult_insert" on storage.objects for insert to authenticate
   with check (bucket_id = 'spd-consult' and (storage.foldername(name))[1] = spd.get_my_org_id()::text);
 create policy "spd_consult_delete" on storage.objects for delete to authenticated
   using (bucket_id = 'spd-consult' and (storage.foldername(name))[1] = spd.get_my_org_id()::text);
+-- Offline replay uploads with upsert, which needs UPDATE when the object already landed.
+create policy "spd_consult_update" on storage.objects for update to authenticated
+  using (bucket_id = 'spd-consult' and (storage.foldername(name))[1] = spd.get_my_org_id()::text)
+  with check (bucket_id = 'spd-consult' and (storage.foldername(name))[1] = spd.get_my_org_id()::text);
