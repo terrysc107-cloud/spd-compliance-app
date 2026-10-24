@@ -307,3 +307,16 @@ A second workspace inside the same app (`/consult/*`) for **independent SPD cons
 - **Tap-to-talk is the default** (owner decision); decontamination is too loud for always-on VAD. In this mode server VAD is off, and the client commits the turn on release (`response.create` only after `input_audio_buffer.committed`, so an empty tap stays silent). Hands-free is a toggle that turns on server VAD at threshold 0.75. The session hangs up after 10 idle minutes.
 - **Review gate.** Voice-created or voice-edited observations get `source='voice'` and `needs_review=true` (migration 009). The flag clears when the observation is edited in the UI or marked "Reviewed". The report's "Before you deliver" list counts any still unreviewed.
 - **Privacy.** The model is told never to record patient identifiers, and the app stores no audio. Before real hospital use, enable OpenAI zero-data-retention or sign a BAA.
+
+## SPD Twin Integration (2026-10-23)
+
+- **The engine is vendored verbatim** from `spd-twin` into `lib/twin/vendor` by `scripts/sync-twin.mjs` (pinned commit in `VERSION`). It is not a git dependency: spd-twin is private, so Vercel couldn't fetch it at build time. Never edit the vendored files. Change spd-twin, then re-run the sync. A test confirms the vendored engine reproduces spd-twin's `tests/golden.json` exactly.
+- **All engine access goes through `lib/twin/index.ts`.** Every input change goes through Twin's own `validateChanges` allowlist (clamp/round/reject), so this app can never feed the engine a value Twin's UI would refuse. Model math is untouched, which honors spd-twin rule #3.
+- **Storage.** Each engagement stores `{current, ideal}` as compact diffs against Twin's DEFAULTS (migration 010), re-validated on every load.
+- **Twin tab.** Current vs Ideal inputs (volume, equipment, work times, staff per shift and role) feed outcome comparisons:
+  - first-case readiness, rush trays on time, 7 a.m. backlog, time in SPD, bottleneck, peak queue, utilization
+  - queue charts on a shared scale, a 100-day risk run, and Twin's lever test ("cheapest moves")
+  - links that open either scenario in the full Twin app (`https://spd-twin.vercel.app/#s=…`)
+- **Voice** gets `set_twin_inputs` (current, ideal or both, validated by Twin) and `get_twin_results`. Twin changes are undoable like any other voice edit.
+- **Report Appendix E.** Outcomes table, both queue charts, ideal-vs-current changes, and cheapest moves. It is always labeled "modeled, not measured". The AI draft receives the same figures and is told to say so too.
+- **Layout drawing is not built**, because Twin models throughput, not floor plans. That stays on Twin's roadmap.

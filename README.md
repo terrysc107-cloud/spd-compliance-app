@@ -65,6 +65,7 @@ App runs at `http://localhost:3000`.
 | `OPENAI_API_KEY` | Yes (voice) | Server-only. Mints 60-second OpenAI Realtime client secrets for the consult voice copilot |
 | `OPENAI_REALTIME_MODEL` | No | Defaults to `gpt-realtime-2.1` |
 | `OPENAI_REALTIME_VOICE` | No | Defaults to `marin` |
+| `NEXT_PUBLIC_SPD_TWIN_URL` | No | Where "Open in SPD Twin" links go. Defaults to `https://spd-twin.vercel.app` |
 
 All variables are consumed at runtime; none are baked into the static build. The `NEXT_PUBLIC_` prefix exposes the Supabase variables to the browser — they are safe to include because Supabase RLS policies enforce access control.
 
@@ -83,6 +84,7 @@ supabase/migrations/002_rls_policies.sql
 supabase/migrations/007_consult.sql   # consulting workspace + spd-consult photo bucket
 supabase/migrations/008_consult_audits.sql
 supabase/migrations/009_consult_voice.sql
+supabase/migrations/010_consult_twin.sql
 ```
 
 `001_initial_schema.sql` creates ten tables:

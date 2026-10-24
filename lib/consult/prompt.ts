@@ -6,6 +6,7 @@
 import { areaName, FACILITY_LABEL, ENGAGEMENT_TYPE_LABEL, PRIORITY_LABEL, RATING_LABEL, getItem } from '@/lib/consult/framework'
 import { BAND_LABEL } from '@/lib/consult/scoring'
 import type { ReportBundle } from '@/lib/consult/report-data'
+import type { TwinResult } from '@/lib/twin'
 
 export const DRAFT_SECTIONS = [
   'Executive Summary',
@@ -89,6 +90,20 @@ export function buildDraftPrompt(b: ReportBundle): string {
       `critical misses ${m.criticalMisses}${worst ? `; most-failed: ${worst}` : ''}`
   }).join('\n')
 
+  const tw = b.twin
+  const twinFmt = (r: TwinResult) =>
+    `first-case trays ready ${r.kpis.firstOK}/${r.kpis.firstN}; rush trays on time ${r.kpis.statOK}/${r.kpis.statN}; ` +
+    `${r.kpis.backlog} trays still in SPD at 7am; bottleneck ${r.constraint ? `${r.constraint.stage} (peak ${r.constraint.peakTrays} trays at ${r.constraint.peakAt})` : 'none'}`
+  const twinBlock = tw ? `
+<flow_model>
+SPD Twin simulation of one OR day (modeled, not measured; say so when citing).
+Current state: ${twinFmt(tw.current)}; first-case misses on ${tw.riskCurrent.firstMissDays}/${tw.riskCurrent.days} simulated days.
+Ideal state: ${twinFmt(tw.ideal)}; first-case misses on ${tw.riskIdeal.firstMissDays}/${tw.riskIdeal.days} simulated days.
+Ideal changes vs current: ${tw.changes.join('; ') || 'none'}
+Cheapest single moves from current: ${tw.levers.map(l => `${l.label} (${l.cost})`).join('; ') || 'none'}
+</flow_model>
+` : ''
+
   const prior = b.priorScore
     ? `Prior engagement "${b.priorScore.title}"${b.priorScore.date ? ` (${b.priorScore.date})` : ''}: overall ${b.priorScore.overall ?? 'n/a'}%. Comment on the change.`
     : 'No prior engagement on record for this client.'
@@ -119,7 +134,7 @@ ${auditLines ? `
 Audits started during the engagement to measure fixes. Baseline = first stretch of logging, current = latest. Cite these numbers as evidence of improvement (or lack of it).
 ${auditLines}
 </instant_audits>
-` : ''}
+` : ''}${twinBlock}
 ${libLines ? `
 <consultant_prior_language>
 How this consultant has phrased similar findings before. Match the tone and level of specificity; reuse wording where it fits the facts above.

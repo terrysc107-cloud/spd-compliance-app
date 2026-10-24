@@ -12,6 +12,7 @@ import { BAND_COLOR, BAND_LABEL, scoreColor } from '@/lib/consult/scoring'
 import type { ReportBundle } from '@/lib/consult/report-data'
 import type { Observation } from '@/lib/consult/types'
 import { Markdown } from './markdown'
+import { TwinAppendix } from './TwinAppendix'
 
 const DEFAULT_METHODOLOGY =
   'The assessment combined direct observation of processing activities, interviews with department leadership and staff, and review of policies, logs, and records. Practices were evaluated against nationally recognized standards and guidelines, including ANSI/AAMI ST79, ST91, ST108, and ST58, AORN Guidelines, and applicable CMS and OSHA requirements. Each checkpoint was rated Met, Partial, or Not Met; scores are weighted by patient-safety risk (critical ×3, major ×2, minor ×1).'
@@ -308,6 +309,7 @@ export function ConsultReport({ bundle: b }: { bundle: ReportBundle }): ReactEle
         <Findings b={b} />
         <ActionPlan b={b} />
         <AuditResults b={b} />
+        {b.twin && <TwinAppendix t={b.twin} />}
 
         <View break>
           <Text style={s.h1}>Methodology & Limitations</Text>

@@ -81,6 +81,7 @@ export interface Engagement {
   executiveSummary:  string | null
   aiDraft:           string | null
   deliveredAt:       string | null
+  twin:              { current: Record<string, unknown> | null; ideal: Record<string, unknown> | null } | null
   createdAt:         string
   updatedAt:         string
 }

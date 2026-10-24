@@ -19,15 +19,17 @@ import ReportTab from '@/components/consult/ReportTab'
 import SyncBadge from '@/components/consult/SyncBadge'
 import AuditsTab from '@/components/consult/audits/AuditsTab'
 import VoiceDock from '@/components/consult/voice/VoiceDock'
+import TwinTab from '@/components/consult/twin/TwinTab'
 import type { VoiceHost } from '@/lib/consult/voice/executor'
 import type { AreaId, Audit, AuditSample, Engagement, EngagementStatus, Observation, ResponseMap } from '@/lib/consult/types'
 
-type Tab = 'overview' | 'walkthrough' | 'observations' | 'audits' | 'report'
+type Tab = 'overview' | 'walkthrough' | 'observations' | 'audits' | 'twin' | 'report'
 const TABS: { id: Tab; label: string }[] = [
   { id: 'overview', label: 'Overview' },
   { id: 'walkthrough', label: 'Walkthrough' },
   { id: 'observations', label: 'Observations' },
   { id: 'audits', label: 'Audits' },
+  { id: 'twin', label: 'SPD Twin' },
   { id: 'report', label: 'Report' },
 ]
 
@@ -163,6 +165,7 @@ export default function EngagementPage({ params }: { params: Promise<{ id: strin
           audits={audits} setAudits={setAudits} samples={samples} setSamples={setSamples}
           onStartHandled={clearAuditFor} onError={setError} />
       )}
+      {tab === 'twin' && <TwinTab engagement={engagement} onPatch={patch} onError={setError} />}
       {tab === 'report' && (
         <ReportTab engagement={engagement} score={score} observations={observations} openGaps={openGaps} onPatch={patch} onError={setError} />
       )}

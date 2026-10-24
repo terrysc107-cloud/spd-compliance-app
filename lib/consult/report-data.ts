@@ -12,6 +12,7 @@ import type {
 import { mapEngagement } from '@/lib/consult/db/engagements'
 import { mapAudit, mapSample } from '@/lib/consult/db/audits'
 import { summarize, type AuditSummary } from '@/lib/consult/audits/scoring'
+import * as Twin from '@/lib/twin'
 
 // The app's clients are pinned to the `spd` schema (lib/supabase/*).
 type SpdClient = SupabaseClient<any, 'spd', 'spd'>
@@ -29,6 +30,13 @@ export interface ReportBundle {
   photos:       ReportPhoto[]
   priorScore:   { title: string; date: string | null; overall: number | null } | null
   audits:       ReportAudit[]
+  twin:         ReportTwin | null
+}
+
+export interface ReportTwin {
+  current: Twin.TwinResult; ideal: Twin.TwinResult
+  riskCurrent: Twin.RiskSummary; riskIdeal: Twin.RiskSummary
+  changes: string[]; levers: Twin.Lever[]; version: string
 }
 
 export interface ReportAudit { audit: Audit; summary: AuditSummary; linkedTitle: string | null }
@@ -88,9 +96,10 @@ export async function loadReportBundle(
   const score = scoreEngagement(scopedAreas(engagement.scopeAreas), responses, observations)
   const priorScore = await loadPriorScore(supabase, engagement)
   const audits = await loadAudits(supabase, engagementId, observations)
+  const twin = engagement.twin?.current ? buildTwin(engagement) : null
   const photos = opts.withPhotos ? await loadPhotos(supabase, observations) : []
 
-  return { engagement, client, responses, observations, score, settings, library, photos, priorScore, audits }
+  return { engagement, client, responses, observations, score, settings, library, photos, priorScore, audits, twin }
 }
 
 /** The client's most recent earlier engagement, scored the same way — the
@@ -154,4 +163,15 @@ async function loadAudits(supabase: SpdClient, engagementId: string, observation
     summary: summarize(a, samples.filter(s => s.auditId === a.id)),
     linkedTitle: a.observationId ? titles.get(a.observationId) ?? null : null,
   }))
+}
+
+/** Pure engine run (≈1s with both 100-day sweeps); only when a Twin model exists. */
+function buildTwin(e: Engagement): ReportTwin {
+  const current = Twin.fromDiff(e.twin?.current)
+  const ideal = Twin.fromDiff(e.twin?.ideal ?? e.twin?.current)
+  return {
+    current: Twin.run(current), ideal: Twin.run(ideal),
+    riskCurrent: Twin.risk100(current), riskIdeal: Twin.risk100(ideal),
+    changes: Twin.describeDiff(current, ideal), levers: Twin.bestLevers(current, 3), version: Twin.TWIN_VERSION,
+  }
 }

@@ -11,6 +11,7 @@ type EngagementRow = {
   visit_start: string | null; visit_end: string | null; scope_areas: string[] | null
   department_profile: DepartmentProfile | null; executive_summary: string | null
   ai_draft: string | null; delivered_at: string | null; created_at: string; updated_at: string
+  twin?: Engagement['twin']
   client?: { name: string } | null
 }
 
@@ -22,7 +23,7 @@ export function mapEngagement(r: EngagementRow): Engagement {
     type: r.engagement_type as EngagementType, status: r.status as EngagementStatus,
     visitStart: r.visit_start, visitEnd: r.visit_end,
     scopeAreas: (r.scope_areas ?? []) as AreaId[], profile: r.department_profile ?? {},
-    executiveSummary: r.executive_summary, aiDraft: r.ai_draft, deliveredAt: r.delivered_at,
+    executiveSummary: r.executive_summary, aiDraft: r.ai_draft, deliveredAt: r.delivered_at, twin: r.twin ?? null,
     createdAt: r.created_at, updatedAt: r.updated_at,
   }
 }
@@ -77,7 +78,7 @@ export async function createEngagement(input: EngagementInput): Promise<Engageme
 
 export type EngagementPatch = Partial<Pick<Engagement,
   'title' | 'type' | 'status' | 'visitStart' | 'visitEnd' | 'scopeAreas' | 'profile' |
-  'executiveSummary' | 'aiDraft' | 'deliveredAt'>>
+  'executiveSummary' | 'aiDraft' | 'deliveredAt' | 'twin'>>
 
 export async function updateEngagement(id: string, u: EngagementPatch): Promise<void> {
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() }
@@ -91,6 +92,7 @@ export async function updateEngagement(id: string, u: EngagementPatch): Promise<
   if (u.executiveSummary !== undefined) patch.executive_summary = u.executiveSummary
   if (u.aiDraft !== undefined)          patch.ai_draft = u.aiDraft
   if (u.deliveredAt !== undefined)      patch.delivered_at = u.deliveredAt
+  if (u.twin !== undefined)             patch.twin = u.twin
   const supabase = createClient()
   const { error } = await supabase.from('consult_engagements').update(patch).eq('id', id)
   if (error) throw new Error(error.message)
