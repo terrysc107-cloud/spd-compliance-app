@@ -82,6 +82,13 @@ export function buildDraftPrompt(b: ReportBundle): string {
     .map(l => `- (${areaName(l.area)}) ${l.title}: ${l.findingText} → ${l.recommendation}`)
     .join('\n')
 
+  const auditLines = b.audits.map(({ audit: a, summary: m, linkedTitle }) => {
+    const worst = m.items.filter(i => i.no).slice(0, 2).map(i => `"${i.text}" ${i.failRate}% No`).join('; ')
+    return `- ${a.title}${linkedTitle ? ` (measures: ${linkedTitle})` : ''}: ${m.samples} ${a.sampleUnit}s over ${m.days} days; ` +
+      `baseline ${m.baseline ?? 'n/a'}% (${m.baselineLabel}) → current ${m.current ?? 'n/a'}% (${m.currentLabel}); ` +
+      `critical misses ${m.criticalMisses}${worst ? `; most-failed: ${worst}` : ''}`
+  }).join('\n')
+
   const prior = b.priorScore
     ? `Prior engagement "${b.priorScore.title}"${b.priorScore.date ? ` (${b.priorScore.date})` : ''}: overall ${b.priorScore.overall ?? 'n/a'}%. Comment on the change.`
     : 'No prior engagement on record for this client.'
@@ -107,6 +114,12 @@ ${gapLines}
 <observations>
 ${obsLines}
 </observations>
+${auditLines ? `
+<instant_audits>
+Audits started during the engagement to measure fixes. Baseline = first stretch of logging, current = latest. Cite these numbers as evidence of improvement (or lack of it).
+${auditLines}
+</instant_audits>
+` : ''}
 ${libLines ? `
 <consultant_prior_language>
 How this consultant has phrased similar findings before. Match the tone and level of specificity; reuse wording where it fits the facts above.

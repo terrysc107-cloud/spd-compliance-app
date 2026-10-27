@@ -1,6 +1,6 @@
 'use client'
 
-import { use, useEffect, useMemo, useState } from 'react'
+import { use, useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import PageShell from '@/components/layout/PageShell'
 import { Button } from '@/components/ui'
@@ -16,13 +16,15 @@ import WalkthroughTab from '@/components/consult/WalkthroughTab'
 import ObservationsTab from '@/components/consult/ObservationsTab'
 import ReportTab from '@/components/consult/ReportTab'
 import SyncBadge from '@/components/consult/SyncBadge'
+import AuditsTab from '@/components/consult/audits/AuditsTab'
 import type { Engagement, EngagementStatus, Observation, ResponseMap } from '@/lib/consult/types'
 
-type Tab = 'overview' | 'walkthrough' | 'observations' | 'report'
+type Tab = 'overview' | 'walkthrough' | 'observations' | 'audits' | 'report'
 const TABS: { id: Tab; label: string }[] = [
   { id: 'overview', label: 'Overview' },
   { id: 'walkthrough', label: 'Walkthrough' },
   { id: 'observations', label: 'Observations' },
+  { id: 'audits', label: 'Audits' },
   { id: 'report', label: 'Report' },
 ]
 
@@ -33,6 +35,8 @@ export default function EngagementPage({ params }: { params: Promise<{ id: strin
   const [observations, setObservations] = useState<Observation[]>([])
   const [tab, setTab] = useState<Tab>('walkthrough')
   const [error, setError] = useState<string | null>(null)
+  const [auditFor, setAuditFor] = useState<Observation | null>(null)
+  const clearAuditFor = useCallback(() => setAuditFor(null), [])
 
   useEffect(() => {
     Promise.all([getEngagement(id), getResponses(id), listObservations(id)])
@@ -119,7 +123,12 @@ export default function EngagementPage({ params }: { params: Promise<{ id: strin
       )}
       {tab === 'observations' && (
         <ObservationsTab engagement={engagement} areas={areas} responses={responses}
-          observations={observations} setObservations={setObservations} onError={setError} />
+          observations={observations} setObservations={setObservations} onError={setError}
+          onStartAudit={o => { setAuditFor(o); setTab('audits') }} />
+      )}
+      {tab === 'audits' && (
+        <AuditsTab engagement={engagement} observations={observations} startFor={auditFor}
+          onStartHandled={clearAuditFor} onError={setError} />
       )}
       {tab === 'report' && (
         <ReportTab engagement={engagement} score={score} observations={observations} openGaps={openGaps} onPatch={patch} onError={setError} />

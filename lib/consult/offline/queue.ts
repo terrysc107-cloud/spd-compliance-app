@@ -18,6 +18,12 @@ export type Op =
   | { kind: 'observation.delete'; id: string; paths: string[] }
   | { kind: 'photo.upload'; path: string; blob: Blob; contentType: string; row: Record<string, unknown> }
   | { kind: 'photo.delete'; id: string; path: string }
+  | { kind: 'row.upsert'; table: QueueTable; row: Record<string, unknown> }
+  | { kind: 'row.update'; table: QueueTable; id: string; patch: Record<string, unknown> }
+  | { kind: 'row.delete'; table: QueueTable; id: string }
+
+/** Tables written through the generic row ops (the rest have dedicated ops). */
+export type QueueTable = 'consult_audits' | 'consult_audit_samples'
 
 type Stored = Op & { seq?: number }
 
@@ -70,6 +76,12 @@ async function run(op: Op): Promise<void> {
     case 'photo.delete':
       await supabase.storage.from(CONSULT_BUCKET).remove([op.path])
       return fail((await supabase.from('consult_photos').delete().eq('id', op.id)).error)
+    case 'row.upsert':
+      return fail((await supabase.from(op.table).upsert(op.row)).error)
+    case 'row.update':
+      return fail((await supabase.from(op.table).update(op.patch).eq('id', op.id)).error)
+    case 'row.delete':
+      return fail((await supabase.from(op.table).delete().eq('id', op.id)).error)
   }
 }
 

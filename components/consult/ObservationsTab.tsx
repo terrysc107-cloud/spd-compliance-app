@@ -13,12 +13,13 @@ import LibraryPicker from './LibraryPicker'
 import { Empty, Select, errMsg } from './fields'
 import type { AreaId, Engagement, FrameworkArea, LibraryEntry, Observation, Rating, ResponseMap } from '@/lib/consult/types'
 
-export default function ObservationsTab({ engagement, areas, responses, observations, setObservations, onError }: {
+export default function ObservationsTab({ engagement, areas, responses, observations, setObservations, onStartAudit, onError }: {
   engagement:      Engagement
   areas:           FrameworkArea[]
   responses:       ResponseMap
   observations:    Observation[]
   setObservations: React.Dispatch<React.SetStateAction<Observation[]>>
+  onStartAudit:    (o: Observation) => void
   onError:         (msg: string) => void
 }) {
   const [adding, setAdding] = useState(false)
@@ -104,7 +105,7 @@ export default function ObservationsTab({ engagement, areas, responses, observat
         /></Card>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {shown.map(o => <ObservationItem key={o.id} obs={o} onChange={update} onDelete={remove} onError={onError} />)}
+          {shown.map(o => <ObservationItem key={o.id} obs={o} onChange={update} onDelete={remove} onStartAudit={onStartAudit} onError={onError} />)}
           {!shown.length && <div style={{ fontSize: 13, color: tokens.color.textMuted }}>No observations match these filters.</div>}
         </div>
       )}

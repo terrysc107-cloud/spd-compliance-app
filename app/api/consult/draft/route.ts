@@ -27,7 +27,7 @@ export async function POST(req: Request) {
 
     const bundle = await loadReportBundle(supabase, engagementId)
     if (!bundle) return Response.json({ error: 'Engagement not found' }, { status: 404 })
-    if (!bundle.observations.length && !bundle.score.answered) {
+    if (!bundle.observations.length && !bundle.score.answered && !bundle.audits.length) {
       return Response.json({ error: 'Record walkthrough responses or observations before drafting' }, { status: 400 })
     }
 
