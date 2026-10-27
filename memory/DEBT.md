@@ -51,3 +51,6 @@ Record consciously deferred work, tradeoffs, and cleanup items here.
 3. ~~HEIC photos skipped in PDF~~ — fixed: photos are re-encoded on-device to JPEG ≤1600px with EXIF/GPS stripped (`lib/consult/photo.ts`). Browsers with no HEIC decoder (non-Apple) show a clear error; iPhones decode HEIC natively.
 4. **Single-consultant firms assumed.** Library and clients are shared org-wide; there is no per-consultant assignment or reviewer sign-off workflow yet.
 5. **App sidebar is fixed-width (240px)** — pre-existing; on phones the workspace is cramped. The walkthrough itself collapses its area list into a dropdown below 900px.
+
+6. **Voice not yet exercised against live OpenAI.** The sandbox network blocks api.openai.com. The executor and the realtime event handling are unit-tested with simulated model traffic, so the first live run happens on the Vercel preview once `OPENAI_API_KEY` is set. If OpenAI rejects a session field, the error is shown in the dock.
+7. **Voice needs a connection.** Offline, the dock says so, and taps still queue.

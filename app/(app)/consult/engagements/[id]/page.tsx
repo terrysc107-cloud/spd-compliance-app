@@ -1,12 +1,13 @@
 'use client'
 
-import { use, useCallback, useEffect, useMemo, useState } from 'react'
+import { use, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import PageShell from '@/components/layout/PageShell'
 import { Button } from '@/components/ui'
 import { tokens } from '@/lib/constants/design-tokens'
 import { getEngagement, getResponses, updateEngagement } from '@/lib/consult/db/engagements'
 import { listObservations } from '@/lib/consult/db/observations'
+import { listAudits } from '@/lib/consult/db/audits'
 import { ENGAGEMENT_TYPE_LABEL, STATUS_LABEL, scopedAreas } from '@/lib/consult/framework'
 import { BAND_COLOR, BAND_LABEL, scoreColor, scoreEngagement } from '@/lib/consult/scoring'
 import { unconvertedGaps } from '@/lib/consult/builders'
@@ -17,7 +18,9 @@ import ObservationsTab from '@/components/consult/ObservationsTab'
 import ReportTab from '@/components/consult/ReportTab'
 import SyncBadge from '@/components/consult/SyncBadge'
 import AuditsTab from '@/components/consult/audits/AuditsTab'
-import type { Engagement, EngagementStatus, Observation, ResponseMap } from '@/lib/consult/types'
+import VoiceDock from '@/components/consult/voice/VoiceDock'
+import type { VoiceHost } from '@/lib/consult/voice/executor'
+import type { AreaId, Audit, AuditSample, Engagement, EngagementStatus, Observation, ResponseMap } from '@/lib/consult/types'
 
 type Tab = 'overview' | 'walkthrough' | 'observations' | 'audits' | 'report'
 const TABS: { id: Tab; label: string }[] = [
@@ -33,10 +36,13 @@ export default function EngagementPage({ params }: { params: Promise<{ id: strin
   const [engagement, setEngagement] = useState<Engagement | null | undefined>(undefined)
   const [responses, setResponses] = useState<ResponseMap>({})
   const [observations, setObservations] = useState<Observation[]>([])
+  const [audits, setAudits] = useState<Audit[] | null>(null)
+  const [samples, setSamples] = useState<AuditSample[]>([])
   const [tab, setTab] = useState<Tab>('walkthrough')
   const [error, setError] = useState<string | null>(null)
   const [auditFor, setAuditFor] = useState<Observation | null>(null)
   const clearAuditFor = useCallback(() => setAuditFor(null), [])
+  const [focusArea, setFocusArea] = useState<{ area: AreaId; n: number } | null>(null)
 
   useEffect(() => {
     Promise.all([getEngagement(id), getResponses(id), listObservations(id)])
@@ -45,12 +51,35 @@ export default function EngagementPage({ params }: { params: Promise<{ id: strin
         if (e && (e.status === 'drafting' || e.status === 'delivered')) setTab('report')
       })
       .catch(e => { setError(errMsg(e)); setEngagement(null) })
+    listAudits(id)
+      .then(r => { setAudits(r.audits); setSamples(r.samples) })
+      .catch(e => { setError(errMsg(e)); setAudits([]) })
   }, [id])
 
   const areas = useMemo(() => scopedAreas(engagement?.scopeAreas ?? []), [engagement?.scopeAreas])
   const score = useMemo(() => scoreEngagement(areas, responses, observations), [areas, responses, observations])
   const openGaps = useMemo(() => unconvertedGaps(responses, observations, new Set(areas.flatMap(a => a.items.map(i => i.id)))).length,
     [areas, responses, observations])
+
+  // Live state for the voice assistant: read through refs so a long session
+  // never acts on a stale snapshot.
+  const live = useRef({ engagement, responses, observations, audits, samples, areas })
+  live.current = { engagement, responses, observations, audits, samples, areas }
+  const patchRef = useRef<(u: Partial<Engagement>) => Promise<void>>(async () => {})
+  const voiceHost = useMemo<Omit<VoiceHost, 'requestPhoto'>>(() => ({
+    engagement: () => live.current.engagement!,
+    areas: () => live.current.areas,
+    responses: () => live.current.responses,
+    setResponses: fn => setResponses(fn),
+    observations: () => live.current.observations,
+    setObservations: fn => setObservations(fn),
+    audits: () => live.current.audits ?? [],
+    setAudits: fn => setAudits(a => fn(a ?? [])),
+    samples: () => live.current.samples,
+    setSamples: fn => setSamples(fn),
+    patchEngagement: u => patchRef.current(u),
+    navigate: (t, area) => { setTab(t); if (area) setFocusArea(f => ({ area, n: (f?.n ?? 0) + 1 })) },
+  }), [])
 
   if (engagement === undefined) return <PageShell title="Engagement"><div style={{ color: tokens.color.textMuted }}>Loading…</div></PageShell>
   if (engagement === null) return (
@@ -61,10 +90,13 @@ export default function EngagementPage({ params }: { params: Promise<{ id: strin
   )
 
   async function patch(u: Partial<Engagement>) {
-    const prev = engagement!
-    setEngagement({ ...prev, ...u })
-    try { await updateEngagement(prev.id, u) } catch (e) { setEngagement(prev); setError(errMsg(e)) }
+    const prev = live.current.engagement!
+    const next = { ...prev, ...u }
+    live.current.engagement = next   // voice may patch twice before the next render
+    setEngagement(next)
+    try { await updateEngagement(prev.id, u) } catch (e) { live.current.engagement = prev; setEngagement(prev); setError(errMsg(e)) }
   }
+  patchRef.current = patch
 
   return (
     <PageShell
@@ -119,7 +151,7 @@ export default function EngagementPage({ params }: { params: Promise<{ id: strin
       {tab === 'overview' && <OverviewTab engagement={engagement} onPatch={patch} />}
       {tab === 'walkthrough' && (
         <WalkthroughTab engagement={engagement} areas={areas} score={score} responses={responses}
-          setResponses={setResponses} observations={observations} setObservations={setObservations} onError={setError} />
+          setResponses={setResponses} observations={observations} setObservations={setObservations} onError={setError} focusArea={focusArea} />
       )}
       {tab === 'observations' && (
         <ObservationsTab engagement={engagement} areas={areas} responses={responses}
@@ -128,11 +160,13 @@ export default function EngagementPage({ params }: { params: Promise<{ id: strin
       )}
       {tab === 'audits' && (
         <AuditsTab engagement={engagement} observations={observations} startFor={auditFor}
+          audits={audits} setAudits={setAudits} samples={samples} setSamples={setSamples}
           onStartHandled={clearAuditFor} onError={setError} />
       )}
       {tab === 'report' && (
         <ReportTab engagement={engagement} score={score} observations={observations} openGaps={openGaps} onPatch={patch} onError={setError} />
       )}
+      <VoiceDock engagementId={engagement.id} host={voiceHost} />
     </PageShell>
   )
 }

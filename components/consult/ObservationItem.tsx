@@ -49,7 +49,7 @@ export default function ObservationItem({ obs, onChange, onDelete, onStartAudit,
     <Card padding="lg">
       <ObservationEditor initial={obs} submitLabel="Save" onCancel={() => setEditing(false)}
         onSubmit={async d => {
-          try { await updateObservation(obs.id, d); onChange({ ...obs, ...d }); setEditing(false) } catch (e) { onError(errMsg(e)) }
+          try { await updateObservation(obs.id, { ...d, needsReview: false }); onChange({ ...obs, ...d, needsReview: false }); setEditing(false) } catch (e) { onError(errMsg(e)) }
         }} />
     </Card>
   )
@@ -58,11 +58,12 @@ export default function ObservationItem({ obs, onChange, onDelete, onStartAudit,
     <Card padding="md">
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
         <Pill color={RATING_COLOR[obs.rating]}>{RATING_LABEL[obs.rating]}</Pill>
+        {obs.needsReview && <Pill color={tokens.color.warning}>🎙 Needs review</Pill>}
         <span style={{ fontSize: 15, fontWeight: 600, color: tokens.color.textPrimary, flex: 1, minWidth: 200 }}>{obs.title}</span>
         {obs.rating !== 'strength' && <span style={{ fontSize: 12, color: tokens.color.textMuted }}>{PRIORITY_LABEL[obs.priority]}</span>}
       </div>
       <div style={{ fontSize: 12, color: tokens.color.textDimmed, marginTop: 4 }}>
-        {areaName(obs.area)}{obs.ownerRole ? ` · Owner: ${obs.ownerRole}` : ''}{obs.source === 'walkthrough' ? ' · from walkthrough' : obs.source === 'library' ? ' · from library' : ''}
+        {areaName(obs.area)}{obs.ownerRole ? ` · Owner: ${obs.ownerRole}` : ''}{obs.source === 'walkthrough' ? ' · from walkthrough' : obs.source === 'library' ? ' · from library' : obs.source === 'voice' ? ' · by voice' : ''}
       </div>
       {obs.detail && <Para label="Observed" text={obs.detail} />}
       {obs.recommendation && <Para label="Recommendation" text={obs.recommendation} />}
@@ -84,6 +85,11 @@ export default function ObservationItem({ obs, onChange, onDelete, onStartAudit,
       )}
 
       <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+        {obs.needsReview && (
+          <Button size="sm" onClick={async () => {
+            try { await updateObservation(obs.id, { needsReview: false }); onChange({ ...obs, needsReview: false }) } catch (e) { onError(errMsg(e)) }
+          }}>✓ Reviewed</Button>
+        )}
         <Button size="sm" variant="secondary" onClick={() => setEditing(true)}>Edit</Button>
         <Button size="sm" variant="secondary" disabled={uploading} onClick={() => fileRef.current?.click()}>{uploading ? 'Uploading…' : '📷 Add photo'}</Button>
         <input ref={fileRef} type="file" accept="image/*" capture="environment" multiple hidden onChange={e => onFiles(e.target.files)} />
