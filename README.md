@@ -15,6 +15,8 @@ Quality analytics platform for Sterile Processing Department supervisors, manage
 - **CSV Data Import** — drag-and-drop CSV upload with a guided column mapper; import history tracked per session.
 - **Report Generation** — AI-generated Audit Summary, Gap Analysis, and Trend reports exported as .txt or printed to PDF via browser print.
 
+- **Consulting Workspace** — for independent SPD consultants assessing *client* facilities: client records, site-visit engagements, an 82-checkpoint standards walkthrough (13 areas, AAMI ST79/ST91/ST108/ST58/ST90, AORN, CMS, OSHA), photo-documented observations, a personal knowledge library, an AI-drafted narrative in the consultant's voice, and a client-ready PDF report + CSV action plan.
+
 ---
 
 ## Who Uses It
@@ -59,6 +61,7 @@ App runs at `http://localhost:3000`.
 | `NEXT_PUBLIC_SUPABASE_URL` | Yes | Supabase project URL (from Project Settings > API) |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Supabase anon/public key (from Project Settings > API) |
 | `AI_GATEWAY_URL` | Yes | Vercel AI gateway endpoint for Anthropic Claude access |
+| `ANTHROPIC_API_KEY` | Yes (AI features) | Server-only. Used by the report advisor and the consult report drafter |
 
 All variables are consumed at runtime; none are baked into the static build. The `NEXT_PUBLIC_` prefix exposes the Supabase variables to the browser — they are safe to include because Supabase RLS policies enforce access control.
 
@@ -73,6 +76,8 @@ A Supabase project is required. Run the two migration files in order from the Su
 ```
 supabase/migrations/001_initial_schema.sql
 supabase/migrations/002_rls_policies.sql
+...
+supabase/migrations/007_consult.sql   # consulting workspace + spd-consult photo bucket
 ```
 
 `001_initial_schema.sql` creates ten tables:
@@ -142,6 +147,12 @@ Access is enforced at three layers: the middleware redirect (unauthenticated use
 /settings                 Organization, Team, Thresholds, Staffing Tools tabs
 /settings/staffing        Staffing calculator with coverage ratio display
 /settings/schedule        7-day smart scheduler grid
+/consult                  Consulting workspace: engagements by stage
+/consult/clients          Client facilities; /[id] shows engagement history + score trend
+/consult/engagements/new  New site visit: client, type, dates, assessment scope
+/consult/engagements/[id] Overview · Walkthrough · Observations · Report (AI draft, PDF, CSV)
+/consult/library          Knowledge library (starter set + your own reusable findings)
+/consult/settings         Consultant profile, credentials, voice notes, report boilerplate
 ```
 
 ---
