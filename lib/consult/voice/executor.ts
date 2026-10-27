@@ -11,12 +11,13 @@ import { clearResponse, setResponse } from '@/lib/consult/db/engagements'
 import { createObservation, deleteObservation, updateObservation, type ObservationInput } from '@/lib/consult/db/observations'
 import { addSample, deleteAudit, deleteSample, startAudit, today } from '@/lib/consult/db/audits'
 import { PROFILE_FIELDS } from './tools'
+import * as Twin from '@/lib/twin'
 import type {
   Answer, AreaId, Audit, AuditAnswer, AuditSample, DepartmentProfile, Engagement, FrameworkArea,
   Observation, Priority, Rating, ResponseMap,
 } from '@/lib/consult/types'
 
-export type Tab = 'overview' | 'walkthrough' | 'observations' | 'audits' | 'report'
+export type Tab = 'overview' | 'walkthrough' | 'observations' | 'audits' | 'twin' | 'report'
 
 /** Live view of page state. Getters, not values, so a long voice session never acts on stale data. */
 export interface VoiceHost {
@@ -103,6 +104,8 @@ export class VoiceExecutor {
       case 'start_audit':            return this.startAudit(a)
       case 'log_audit_sample':       return this.logSample(a)
       case 'set_department_profile': return this.setProfile(a)
+      case 'set_twin_inputs':        return this.setTwin(a)
+      case 'get_twin_results':       return this.twinResults()
       case 'go_to':                  return this.goTo(a)
       case 'undo_last': {
         const label = await this.undo()
@@ -298,8 +301,58 @@ export class VoiceExecutor {
     return { updated: set }
   }
 
+  // ── SPD Twin ───────────────────────────────────────────────────────────────
+
+  private scenarios() {
+    const t = this.host.engagement().twin
+    return { current: Twin.fromDiff(t?.current), ideal: Twin.fromDiff(t?.ideal ?? t?.current) }
+  }
+
+  private async setTwin(a: Args) {
+    const h = this.host
+    const which = oneOf<'current' | 'ideal' | 'both'>(a.scenario, ['current', 'ideal', 'both']) ?? fail('scenario must be current, ideal, or both')
+    const raw = Array.isArray(a.changes) ? (a.changes as Args[]) : fail('changes must be a list')
+    const changes = raw.map(c => ({ path: String(c.path ?? ''), to: c.to }))
+    const prev = h.engagement().twin ?? null
+    const sc = this.scenarios()
+    const targets = which === 'both' ? (['current', 'ideal'] as const) : [which!]
+    const lines: string[] = [], rejected: { path: string; reason: string }[] = []
+    const next = { ...sc }
+    for (const s of targets) {
+      // Twin's own allowlist decides what is legal; nothing outside it reaches the engine.
+      const v = Twin.validate(next[s], changes)
+      rejected.push(...v.rejected)
+      if (v.ok.length) { lines.push(...Twin.describe(v.ok, next[s]).map(l => `${s}: ${l}`)); next[s] = Twin.apply(next[s], v.ok) }
+    }
+    if (!lines.length) fail(rejected.length ? `Rejected: ${rejected.map(r => `${r.path} (${r.reason})`).join('; ')}` : 'Those values are already set')
+    await h.patchEngagement({ twin: { current: Twin.toDiff(next.current), ideal: Twin.toDiff(next.ideal) } })
+    const label = `SPD Twin · ${lines.join('; ')}`
+    const fid = this.feed(label, 'write')
+    this.pushUndo(fid, label, () => h.patchEngagement({ twin: prev }))
+    return { applied: lines, rejected }
+  }
+
+  private twinResults() {
+    const sc = this.scenarios()
+    const out = (p: Twin.TwinParams) => {
+      const r = Twin.run(p)
+      return {
+        first_case_ready: `${r.kpis.firstOK}/${r.kpis.firstN}`, rush_on_time: `${r.kpis.statOK}/${r.kpis.statN}`,
+        still_in_spd_at_7am: r.kpis.backlog, avg_minutes_in_spd: Math.round(r.kpis.avgTat),
+        bottleneck: r.constraint ? `${r.constraint.stage}, peak ${r.constraint.peakTrays} trays at ${r.constraint.peakAt}` : null,
+      }
+    }
+    this.feed('Ran SPD Twin', 'read')
+    return {
+      current: out(sc.current), ideal: out(sc.ideal),
+      ideal_changes: Twin.describeDiff(sc.current, sc.ideal),
+      cheapest_moves_from_current: Twin.bestLevers(sc.current, 3).map(l => `${l.label} (${l.cost})`),
+      note: 'Modeled with SPD Twin defaults for anything not set; say so if you quote these.',
+    }
+  }
+
   private goTo(a: Args) {
-    const tab = oneOf<Tab>(a.tab, ['overview', 'walkthrough', 'observations', 'audits', 'report']) ?? fail('Unknown tab')
+    const tab = oneOf<Tab>(a.tab, ['overview', 'walkthrough', 'observations', 'audits', 'twin', 'report']) ?? fail('Unknown tab')
     const area = oneOf<AreaId>(a.area, ALL_AREA_IDS)
     this.host.navigate(tab!, area)
     this.feed(`Opened ${tab}${area ? ` · ${areaName(area)}` : ''}`, 'nav')
